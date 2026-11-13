@@ -36,15 +36,14 @@
     const panel = (u1, v1, u2, v2, color) => ({ u1, v1, u2, v2, color });
     const glass = ['#5a6b6a', '#89928a', '#4b595d', '#6f8383', '#626a64'];
 
-    function windows(side, floor, columns, waterfront = false) {
+    function windows(side, floor, columns) {
       if (side === 'top') return [];
       const result = [];
       for (let i = 0; i < columns; i++) {
         const left = i / columns;
         const right = (i + 1) / columns;
-        const frame = waterfront && [0, 3, 6, 9].includes(i);
         result.push(
-          panel(left, 0, right, 1, frame ? '#60574f' : '#b68b66'),
+          panel(left, 0, right, 1, '#ad896d'),
           panel(left + .012, .18, right - .009, .91, '#4f4b46'),
           panel(left + .020, .19, right - .017, .81, glass[(floor + i) % glass.length]),
           panel(left + .022, .19, right - .019, .39, '#9da9a3')
@@ -53,8 +52,42 @@
       return result;
     }
 
-    function waterfrontWindows(side, floor) {
-      return windows(side, floor, side === 'front' || side === 'back' ? 10 : 3, side === 'front');
+    function glazing(side, floor) {
+      if (side === 'top') return [];
+      const columns = side === 'front' || side === 'back' ? 12 : 4;
+      const panes = [];
+      for (let i = 0; i < columns; i++) {
+        const u = i / columns;
+        const end = (i + 1) / columns;
+        panes.push(panel(u + .008, .10, end - .008, .92, glass[(i + floor) % glass.length]));
+        panes.push(panel(u + .012, .55, end - .012, .88, '#b3b6a5'));
+        panes.push(panel(u + .019, .12, end - .015, .20, '#d3c4a3'));
+      }
+      return panes;
+    }
+
+    const bayEdges = [-4.25, -3.42, -2.59, -1.76, -.93, -.10, .73, 1.56, 2.39, 3.22, 4.25];
+    const darkBays = new Set([0, 3, 6, 9]);
+    const railMaterials = ['#8fa2a2', '#728787', '#a9bab5'];
+    const darkCladding = ['#49443f', '#4d4941', '#61594e'];
+    const balconyInterior = ['#473e34', '#67503c', '#a3815f'];
+    function balconyBays(y, floor, id) {
+      for (let i = 0; i < bayEdges.length - 1; i++) {
+        const left = bayEdges[i];
+        const right = bayEdges[i + 1];
+        const dark = darkBays.has(i);
+        if (dark) {
+          box(left, right, y, y + .91, 1.63, 2.07, darkCladding, id, side =>
+            side === 'front' ? [panel(.18, .30, .80, .74, glass[(floor + i) % glass.length])] : []);
+          continue;
+        }
+        box(left, right, y, y + .91, 1.50, 1.65, balconyInterior, id, side =>
+          side === 'front' ? [panel(.08, .12, .91, .86, glass[(floor + i) % glass.length]),
+            panel(.54, .12, .57, .86, '#4d4b43')] : []);
+        box(left, left + .07, y, y + .91, 1.64, 2.27, plaster, id);
+        box(left, right, y + .035, y + .34, 2.21, 2.25, railMaterials, id, side =>
+          side === 'front' ? [panel(.48, 0, .51, 1, '#586b68'), panel(0, .84, 1, 1, '#c6d2cc')] : []);
+      }
     }
 
     function podiumSlats(side) {
@@ -68,7 +101,10 @@
 
     box(-4.48, 4.62, -.23, 0, -1.08, 2.56, ['#a19f91','#777d70','#c6c0ab']);
     box(-3.16, -1.48, -.23, 0, -5.45, -1.08, ['#a19f91','#777d70','#c6c0ab']);
-    box(-4.56, 4.50, 0, .73, -.88, 2.29, ['#b69879','#8f795f','#c4b49e'], null, side => waterfrontWindows(side, 1));
+    box(-4.56, 4.50, 0, .73, -.88, 2.27, ['#504c41','#605546','#9c8b71'], null, side => glazing(side, 1));
+    for (const x of [-4.48, -3.22, -1.97, -.52, .79, 2.28, 3.73, 4.38]) {
+      box(x, x + .078, .01, .73, 2.25, 2.36, stone);
+    }
     box(-4.64, 4.53, .73, 1.53, -.94, 2.42, bronze, null, podiumSlats);
     box(-4.66, 4.55, 1.52, 1.65, -.96, 2.45, stone);
     box(-3.12, -1.55, 0, 1.62, -5.40, -.96, bronze);
@@ -78,11 +114,11 @@
       const id = String(floor).padStart(2, '0');
       box(-3.04, -1.56, y, y + .94, -4.46, -.72, plaster, id, side => windows(side, floor, 3));
       box(-3.12, -1.49, y + .88, y + 1.04, -4.55, -.84, stone, id);
-      box(-4.24, 4.24, y, y + .94, -.72, 1.97, plaster, id, side => waterfrontWindows(side, floor));
+      box(-4.24, 4.24, y, y + .94, -.72, 1.48, plaster, id, side => windows(side, floor, side === 'back' ? 10 : 3));
+      balconyBays(y, floor, id);
       box(-4.36, 4.36, y + .86, y + 1.04, -.84, 2.30, stone, id);
-      for (const [left, right] of [[-4.39, -4.19], [-.16, .05], [4.19, 4.39]]) {
-        box(left, right, y, y + 1.04, 1.94, 2.32, stone, id);
-      }
+      box(-.11, .05, y, y + 1.04, 1.48, 2.32, stone, id);
+      box(4.18, 4.38, y, y + 1.04, 1.48, 2.32, stone, id);
     }
 
     // Highlight the approximate façade positions on the selected floor.
@@ -150,6 +186,8 @@
     if (!ctx) return null;
     const tower = buildScene();
     let neighbours = [];
+    let streets = [];
+    let contactOutlines = [];
     let selectedUnit = null;
     const camera = { ...initialView };
     let width = 0;
@@ -251,25 +289,79 @@
           visible.push({ surface, points, depth });
         }
         return visible.sort((a, b) => a.depth - b.depth);
-      };
-      const shadow = project([0, -.28, 0]);
-      ctx.save();
-      ctx.translate(shadow.x, shadow.y + 3);
-      ctx.scale(1, .39);
-      const shadowSize = scale * 5.9;
-      const shadowGradient = ctx.createRadialGradient(0, 0, shadowSize * .25, 0, 0, shadowSize);
-      shadowGradient.addColorStop(0, '#244b4260');
-      shadowGradient.addColorStop(1, '#244b4200');
-      ctx.fillStyle = shadowGradient;
-      ctx.fillRect(-shadowSize, -shadowSize, shadowSize * 2, shadowSize * 2);
-      ctx.restore();
+      }
+      const streetOpacity = clamp((camera.zoom - .33) / .35, 0, .82);
+      if (streetOpacity > 0) {
+        const streetStyles = {
+          primary: { colour: '#5d6060', edge: '#a29b8e', width: 1.46, lanes: true },
+          residential: { colour: '#656563', edge: '#a9a191', width: .87 },
+          footway: { colour: '#d4baa0', edge: '#e1cab1', width: .56 },
+          cycleway: { colour: '#8d5c50', edge: '#d4c2aa', width: .34 }
+        };
+        ctx.save();
+        ctx.globalAlpha = streetOpacity;
+        for (const { kind, points } of streets) {
+          const style = streetStyles[kind];
+          for (let i = 1; i < points.length; i++) {
+            const [ax, az] = points[i-1];
+            const [bx, bz] = points[i];
+            const length = Math.hypot(bx-ax, bz-az);
+            if (length < .01) continue;
+            const edgeX = (az-bz) / length;
+            const edgeZ = (bx-ax) / length;
+            for (const [spread, colour] of [[style.width / 2 + .13, style.edge], [style.width / 2, style.colour]]) {
+              const segment = [[ax+edgeX*spread,-.231,az+edgeZ*spread], [bx+edgeX*spread,-.231,bz+edgeZ*spread],
+                [bx-edgeX*spread,-.231,bz-edgeZ*spread], [ax-edgeX*spread,-.231,az-edgeZ*spread]].map(project);
+              if (segment.some(point => point.w <= 0)) continue;
+              trace(ctx, segment);
+              ctx.fillStyle = colour;
+              ctx.fill();
+            }
+            if (style.lanes) {
+              const start = project([ax,-.229,az]);
+              const end = project([bx,-.229,bz]);
+              if (start.w <= 0 || end.w <= 0) continue;
+              ctx.beginPath();
+              ctx.moveTo(start.x, start.y);
+              ctx.lineTo(end.x, end.y);
+              ctx.lineWidth = 1;
+              ctx.strokeStyle = '#eee4ca';
+              ctx.setLineDash([6, 8]);
+              ctx.stroke();
+              ctx.setLineDash([]);
+            }
+          }
+        }
+        ctx.restore();
+      }
+
+      const towerGround = [[-4.48,-1.08],[4.62,-1.08],[4.62,2.56],[-4.48,2.56]];
+      const towerWing = [[-3.16,-5.45],[-1.48,-5.45],[-1.48,-1.08],[-3.16,-1.08]];
+      for (const outline of [...contactOutlines, towerGround, towerWing]) {
+        const shadow = outline.map(([x,z]) => project([x+.16,-.23,z-.16]));
+        if (shadow.some(point => point.w <= 0)) continue;
+        trace(ctx, shadow);
+        ctx.fillStyle = '#17292548';
+        ctx.shadowColor = '#152c2780';
+        ctx.shadowBlur = 5;
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
 
       projectedFaces = cameraFaces();
       for (const { surface, points } of projectedFaces) {
         trace(ctx, points);
         ctx.fillStyle = surface.unit ? '#d8f0a1e6' : surface.color;
         ctx.fill();
-        if (surface.unit || !surface.details) continue;
+        if (surface.unit) continue;
+        const [nx, ny, nz] = surface.normal;
+        const direction = Math.hypot(nx, ny, nz) || 1;
+        const light = clamp((-.50 * nx + .84 * ny + .42 * nz) / direction, -.7, 1);
+        if (!surface.details) {
+          ctx.fillStyle = 'rgba(41,44,38,' + (.15 - light * .12) + ')';
+          ctx.fill();
+          continue;
+        }
         const [origin, right, , top] = surface.points;
         function onFace(u, v) {
           return project(origin.map((value, axis) => value + (right[axis] - value) * u + (top[axis] - value) * v));
@@ -277,6 +369,11 @@
         for (const { u1, v1, u2, v2, color } of surface.details) {
           trace(ctx, [onFace(u1,v1), onFace(u2,v1), onFace(u2,v2), onFace(u1,v2)]);
           ctx.fillStyle = color;
+          ctx.fill();
+        }
+        if (light < .55) {
+          trace(ctx, points);
+          ctx.fillStyle = 'rgba(39,35,28,' + ((.55 - light) * .15) + ')';
           ctx.fill();
         }
         const { floor } = surface;
@@ -445,6 +542,11 @@
       },
       setNeighbours(footprints) {
         neighbours = neighbourhoodFaces(footprints);
+        contactOutlines = footprints.map(({ outline }) => outline);
+        redraw();
+      },
+      setStreets(features) {
+        streets = features;
         redraw();
       },
       select(floor) {

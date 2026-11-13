@@ -57,6 +57,10 @@ const tooltip = $('#floor-tooltip');
 const pin = $('#site-pin');
 const floorChip = $('.floor-chip');
 const planStage = $('#plan-stage');
+const workspace = $('.workspace');
+const sheetHeader = $('#sheet-header');
+const sheetToggle = $('#sheet-toggle');
+const compareDialog = $('#compare-dialog');
 const unitPin = $('#unit-pin');
 const beachLabel = $('#beach-label');
 const avenueLabel = $('#avenue-label');
@@ -79,14 +83,20 @@ const model = window.createBuilding(canvas, {
     const aerial = activeView === 'aerial';
     pin.hidden = !aerial;
     if (aerial) place(pin, tower, 72, width - 72, 96, height - 78);
-    floorChip.classList.toggle('floor-chip-anchored', !aerial);
-    if (!aerial) place(floorChip, floor, 62, width - 44, 65, height - 88, 13);
+    const pinWouldOverlap = unit && width < 530
+      && Math.abs(floor.x + 42 - unit.x) < 70 && Math.abs(floor.y - unit.y) < 35;
+    const anchorFloor = !aerial && !pinWouldOverlap;
+    floorChip.classList.toggle('floor-chip-anchored', anchorFloor);
+    if (anchorFloor) place(floorChip, floor, 40, width - 67, 59, height - 41, 13);
+    else {
+      floorChip.style.left = '';
+      floorChip.style.top = '';
+    }
     unitPin.hidden = !unit || aerial;
-    if (!unitPin.hidden) place(unitPin, unit, 26, width - 26, 79, height - 86, 0, -10);
+    if (!unitPin.hidden) place(unitPin, unit, 26, width - 26, 43, height - 26, 0, -10);
 
     for (const [label, point] of [[beachLabel, beach], [avenueLabel, avenue]]) {
-      label.hidden = point.x < 65 || point.x > width - 65 || point.y < 80 || point.y > height - 54
-        || (Math.abs(point.x - width / 2) < 175 && point.y > height - 98)
+      label.hidden = point.x < 65 || point.x > width - 65 || point.y < 80 || point.y > height - 17
         || Math.hypot(point.x - tower.x, point.y - tower.y) < 56
         || Math.hypot(point.x - floor.x, point.y - floor.y) < 49;
       if (!label.hidden) place(label, point, 0, width, 0, height);
@@ -124,13 +134,18 @@ $('#model-controls').hidden = !model;
 $('#angle-button').hidden = !model;
 model?.select('11');
 if (model) {
-  fetch('aerial/osm-buildings.json')
-    .then(response => response.ok ? response.json() : [])
-    .then(footprints => {
-      model.setNeighbours(footprints);
-      $('#osm-credit').hidden = !footprints.length;
-    })
-    .catch(() => {});
+  for (const [file, apply] of [
+    ['osm-buildings.json', model.setNeighbours],
+    ['osm-streets.json', model.setStreets]
+  ]) {
+    fetch('aerial/' + file)
+      .then(response => response.ok ? response.json() : [])
+      .then(features => {
+        apply(features);
+        if (features.length) $('#osm-credit').hidden = false;
+      })
+      .catch(() => {});
+  }
 }
 
 function place(element, point, minX, maxX, minY, maxY, offsetX = 0, offsetY = 0) {
@@ -142,7 +157,9 @@ function setView(view, { focusTab = false, cameraAction } = {}) {
   activeView = view;
   const showPlan = view === 'plan';
   planStage.hidden = !showPlan;
-  $('#units-floor').hidden = showPlan;
+  workspace.classList.toggle('plan-open', showPlan);
+  sheetHeader.hidden = !showPlan;
+  if (!showPlan) setSheetExpanded(true);
   $('#units-title').classList.toggle('sr-only', showPlan);
   $('.units-intro').hidden = showPlan;
   $('#unit-list').hidden = showPlan;
@@ -165,11 +182,32 @@ function setView(view, { focusTab = false, cameraAction } = {}) {
 function openPlan(moveFocus) {
   const wasOpen = activeView === 'plan';
   setView('plan', { cameraAction: !wasOpen && !selectedUnit ? 'model' : undefined });
+  setSheetExpanded(true);
   if (selectedUnit) focusUnitInScene(selectedUnit);
+  $('#sheet-selection').textContent = selectedUnit ? 'Unidade ' + selectedUnit.id : '11º pavimento';
   if (!moveFocus) return;
   $('#plan-title').focus({ preventScroll: true });
-  if (mediaSmall.matches) planStage.scrollIntoView({ block: 'nearest' });
+  if (mediaSmall.matches) $('.site-header').scrollIntoView({ block: 'start' });
 }
+
+function setSheetExpanded(expanded) {
+  workspace.classList.toggle('sheet-collapsed', !expanded);
+  sheetToggle.setAttribute('aria-expanded', String(expanded));
+  sheetToggle.textContent = expanded ? 'Recolher' : 'Abrir planta';
+}
+
+function closePlan() {
+  setView('model');
+  updateAngleButton(false);
+  floorChip.focus({ preventScroll: true });
+}
+
+sheetToggle.addEventListener('click', () => setSheetExpanded(sheetToggle.getAttribute('aria-expanded') !== 'true'));
+$('#close-plan').addEventListener('click', closePlan);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && activeView === 'plan' && !compareDialog.open && !event.defaultPrevented) closePlan();
+});
+mediaSmall.addEventListener('change', () => setSheetExpanded(true));
 
 pin.addEventListener('click', () => {
   setView('model', { focusTab: true });
@@ -206,23 +244,27 @@ function selectUnit(id, fromPlan) {
     </dl>
     <div class="unit-detail-links">
       ${unitPlanLink(selectedUnit, 'Ver planta publicada')}
-      <button type="button" class="jump-to-model">Ver no 3D ↑</button>
+      <button type="button" class="jump-to-model">Ver no edifício ↑</button>
     </div>`;
   detail.hidden = false;
+  $('#sheet-selection').textContent = 'Unidade ' + id;
   for (const button of $$('[data-unit]')) {
     button.setAttribute('aria-pressed', String(button.dataset.unit === id));
   }
   renderFavourite();
   $('#save-unit').addEventListener('click', toggleFavourite);
-  $('.jump-to-model').addEventListener('click', () => {
-    focusUnitInScene(selectedUnit);
-    canvas.focus({ preventScroll: true });
-    $('.viewer').scrollIntoView({ block: 'start' });
-  });
-  if (fromPlan) {
-    detail.querySelector('h3').focus({ preventScroll: true });
-    if (mediaSmall.matches) detail.scrollIntoView({ block: 'nearest' });
+  $('.jump-to-model').addEventListener('click', () => showUnitOnBuilding(id));
+  if (fromPlan && !mediaSmall.matches) detail.querySelector('h3').focus({ preventScroll: true });
+  if (mediaSmall.matches) {
+    if (!fromPlan) $('#plan-title').focus({ preventScroll: true });
+    $('.site-header').scrollIntoView({ block: 'start' });
   }
+}
+
+function showUnitOnBuilding(id) {
+  selectUnit(id, false);
+  if (mediaSmall.matches) setSheetExpanded(false);
+  canvas.focus({ preventScroll: true });
 }
 
 function focusUnitInScene(unit) {
@@ -290,17 +332,123 @@ $('#compare-summary').textContent = 'A unidade 1108 tem ' + formatArea(areaDiffe
 $('#compare-plans').innerHTML = units.map(unit => `
   <figure class="compare-plan">
     <figcaption><strong>${unit.id}</strong><span>${formatArea(unit.area)}</span></figcaption>
-    <div class="compare-diagram" role="img" aria-label="Contorno aproximado da unidade ${unit.id}. ${unit.orientation}. ${unit.layout}">
-      <div class="compare-footprint compare-footprint-${unit.id}">
-        <span class="room-label room-living">Sala</span>
-        <span class="room-label room-suite">Suíte</span>
-        ${unit.id === '1108' ? '<span class="room-label room-balcony">Varanda</span>' : ''}
-      </div>
-      <span class="compare-diagram-coast">↓ Orla</span>
+    <div class="compare-diagram">
+      <canvas width="416" height="488" data-plan-drawing="${unit.id}" role="img"
+        aria-label="Planta esquemática da unidade ${unit.id}. ${unit.orientation}. ${unit.layout} Cozinha, banheiro, portas e janelas indicados."></canvas>
+      <span class="compare-diagram-coast" aria-hidden="true">↓ Orla</span>
     </div>
     <p>${unit.layout}</p>
-    ${unitPlanLink(unit, 'Ver desenho publicado')}
+    <div class="compare-plan-actions">
+      <button type="button" class="compare-locate" data-show-building="${unit.id}" aria-label="Ver unidade ${unit.id} no edifício">Ver no edifício</button>
+      ${unitPlanLink(unit, 'Desenho publicado')}
+    </div>
   </figure>`).join('');
+// Both outlines use the same coordinate scale from the typical floor drawing.
+const planDrawings = {
+  '1103': {
+    outline: [[44,10],[163,10],[163,235],[44,235],[44,143],[72,112],[44,85]],
+    rooms: [
+      { path: [[44,10],[163,10],[163,158],[134,158],[44,85]], fill: '#eef1df' },
+      { path: [[44,143],[72,112],[133,166],[133,235],[44,235]], fill: '#dbe8cf' },
+      { path: [[133,169],[163,169],[163,235],[133,235]], fill: '#dceae9' },
+      { path: [[82,10],[163,10],[163,48],[82,48]], fill: '#eadfcd' }
+    ],
+    walls: [[[72,112],[129,166]], [[133,170],[133,235]], [[133,169],[147,169]]],
+    windows: [[[44,62],[44,81]], [[44,151],[44,198]]],
+    doors: [
+      { x: 163, y: 131, radius: 20, angle: Math.PI / 2, swing: Math.PI / 2 },
+      { x: 130, y: 166, radius: 16, angle: 0, swing: Math.PI / 2 },
+      { x: 163, y: 169, radius: 15, angle: Math.PI, swing: -Math.PI / 2 }
+    ],
+    fixtures: [[91,15,65,8], [140,199,16,11], [140,217,15,10], [63,178,48,37]],
+    labels: [['Cozinha',122,35],['Sala',112,78],['Suíte',87,160],['Banho',149,190]]
+  },
+  '1108': {
+    outline: [[18,38],[190,38],[190,226],[18,226]],
+    rooms: [
+      { path: [[18,38],[113,38],[113,226],[18,226]], fill: '#eef1df' },
+      { path: [[113,38],[190,38],[190,226],[113,226]], fill: '#dbe8cf' },
+      { path: [[18,38],[60,38],[60,72],[18,72]], fill: '#dceae9' },
+      { path: [[113,38],[150,38],[150,96],[113,96]], fill: '#dceae9' },
+      { path: [[92,38],[113,38],[113,111],[92,111]], fill: '#eadfcd' },
+      { path: [[18,187],[113,187],[113,226],[18,226]], fill: '#e7e6d0' }
+    ],
+    walls: [[[113,38],[113,102]], [[113,121],[113,226]], [[18,72],[43,72]], [[60,72],[60,38]], [[150,38],[150,96]], [[150,96],[132,96]], [[18,187],[29,187]], [[91,187],[113,187]]],
+    windows: [[[29,187],[91,187]], [[25,226],[105,226]], [[127,226],[178,226]]],
+    doors: [
+      { x: 77, y: 38, radius: 17, angle: 0, swing: Math.PI / 2 },
+      { x: 43, y: 72, radius: 16, angle: 0, swing: -Math.PI / 2 },
+      { x: 113, y: 120, radius: 18, angle: -Math.PI / 2, swing: Math.PI / 2 },
+      { x: 132, y: 96, radius: 17, angle: Math.PI, swing: Math.PI / 2 }
+    ],
+    fixtures: [[98,42,11,60], [22,43,9,17], [43,43,10,18], [121,47,20,13], [121,72,16,10], [140,133,37,47], [22,125,16,48]],
+    labels: [['Banho',39,65],['Cozinha',82,91],['Banho',131,89],['Sala',66,142],['Suíte',153,119],['Varanda',64,208]]
+  }
+};
+
+function drawComparisonPlans() {
+  for (const diagram of $$('[data-plan-drawing]')) {
+    const ctx = diagram.getContext('2d');
+    if (!ctx) continue;
+    const plan = planDrawings[diagram.dataset.planDrawing];
+    ctx.setTransform(2, 0, 0, 2, 0, 0);
+    ctx.clearRect(0, 0, 208, 244);
+    ctx.lineJoin = 'round';
+    function trace(points, closed = false) {
+      ctx.beginPath();
+      ctx.moveTo(...points[0]);
+      for (const point of points.slice(1)) ctx.lineTo(...point);
+      if (closed) ctx.closePath();
+    }
+    for (const room of plan.rooms) {
+      trace(room.path, true);
+      ctx.fillStyle = room.fill;
+      ctx.fill();
+    }
+    ctx.lineWidth = 2.3;
+    ctx.strokeStyle = '#3b524a';
+    trace(plan.outline, true);
+    ctx.stroke();
+    for (const wall of plan.walls) {
+      trace(wall);
+      ctx.stroke();
+    }
+    ctx.lineWidth = 1.05;
+    ctx.fillStyle = '#f7f4e8';
+    for (const [x,y,width,height] of plan.fixtures) {
+      ctx.fillRect(x,y,width,height);
+      ctx.strokeRect(x,y,width,height);
+    }
+    for (const window of plan.windows) {
+      trace(window);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#f5f3e8';
+      ctx.stroke();
+      ctx.lineWidth = 1.7;
+      ctx.strokeStyle = '#4b8688';
+      ctx.stroke();
+    }
+    for (const { x, y, radius, angle, swing } of plan.doors) {
+      trace([[x,y],[x+Math.cos(angle)*radius,y+Math.sin(angle)*radius]]);
+      ctx.lineWidth = 3.1;
+      ctx.strokeStyle = '#f4f3e9';
+      ctx.stroke();
+      ctx.lineWidth = .9;
+      ctx.strokeStyle = '#687269';
+      ctx.beginPath();
+      ctx.arc(x,y,radius,angle,angle+swing,swing < 0);
+      ctx.stroke();
+      trace([[x,y],[x+Math.cos(angle+swing)*radius,y+Math.sin(angle+swing)*radius]]);
+      ctx.stroke();
+    }
+    ctx.font = '600 11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#213c32';
+    for (const [label,x,y] of plan.labels) ctx.fillText(label,x,y);
+  }
+}
+
 $('#compare-content').innerHTML = `
   <table class="compare-table">
     <thead><tr><th scope="col">Característica</th>${units.map(unit => '<th scope="col">' + unit.id + '</th>').join('')}</tr></thead>
@@ -315,8 +463,7 @@ for (const button of $$('[data-view]')) {
       setView(button.dataset.view);
       updateAngleButton(false);
     } else if (button === floorChip && activeView === 'plan') {
-      setView('model');
-      updateAngleButton(false);
+      closePlan();
     } else {
       openPlan(true);
     }
@@ -343,4 +490,14 @@ for (const button of $$('[data-camera]')) {
 for (const button of $$('[data-photo]')) {
   button.addEventListener('click', () => showPhotograph(Number(button.dataset.photo)));
 }
-$('#compare-open').addEventListener('click', () => $('#compare-dialog').showModal());
+$('#compare-open').addEventListener('click', () => {
+  compareDialog.showModal();
+  drawComparisonPlans();
+  compareDialog.scrollTop = 0;
+});
+for (const button of $$('[data-show-building]')) {
+  button.addEventListener('click', () => {
+    compareDialog.close();
+    showUnitOnBuilding(button.dataset.showBuilding);
+  });
+}

@@ -9,26 +9,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=five-4">
-  <script src="building.js?v=five-4" defer></script>
-  <script src="app.js?v=five-4" defer></script>
+  <link rel="stylesheet" href="style.css?v=five-5">
+  <script src="building.js?v=five-5" defer></script>
+  <script src="app.js?v=five-5" defer></script>
 </head>
 <body>
   <header class="site-header">
     <a class="brand" href="./" aria-label="Orla Ponta Verde, início"><strong>ORLA</strong><span>PONTA VERDE</span></a>
-    <span class="header-location">Maceió, Alagoas</span>
-    <a class="header-link" href="#fontes">Fontes e créditos <span aria-hidden="true">↓</span></a>
+    <div class="property-title">
+      <h1 id="title">Five Flex Life</h1>
+      <p>Av. Sílvio Carlos Viana, 1811 · Ponta Verde, Maceió</p>
+    </div>
+    <a class="header-link" href="#fontes">Fontes <span aria-hidden="true">↓</span></a>
   </header>
   <main>
-    <section class="intro" aria-labelledby="title">
-      <div>
-        <p class="eyebrow">Ponta Verde · Maceió</p>
-        <h1 id="title">Five Flex Life</h1>
-        <p class="address">Av. Sílvio Carlos Viana, 1811</p>
-      </div>
-      <p class="project-note">Demonstração independente</p>
-    </section>
-
     <div class="workspace">
       <section class="viewer" aria-label="Explorar o Five Flex Life">
         <div class="viewer-bar">
@@ -41,7 +35,7 @@
         </div>
 
         <div id="model-stage" class="model-stage">
-          <img id="satellite-ground" class="satellite-ground" src="aerial/ponta-verde-cbers.jpg?v=five-4" width="1152" height="1152" alt="">
+          <img id="satellite-ground" class="satellite-ground" src="aerial/ponta-verde-cbers.jpg?v=five-5" width="1152" height="1152" alt="">
           <canvas id="building-canvas" tabindex="0" aria-label="Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde" aria-describedby="model-instructions"></canvas>
           <button type="button" class="site-pin" id="site-pin" aria-label="Aproximar de Five Flex Life" hidden><span>Five Flex Life</span></button>
           <p id="model-instructions" class="sr-only">Arraste para girar. No teclado, use as setas para girar e mais ou menos para aproximar ou afastar. Entorno amplia a vista da orla e o botão Five Flex Life aproxima o edifício. O botão 11º pavimento abre a planta.</p>
@@ -55,63 +49,72 @@
           </div>
           <button type="button" class="floor-chip" data-view="plan" aria-controls="plan-stage" aria-expanded="false" aria-label="Abrir planta do 11º pavimento"><b>11º</b><span class="floor-chip-label">Pavimento</span><span aria-hidden="true">↗</span></button>
           <output id="floor-tooltip" class="floor-tooltip" aria-hidden="true" hidden></output>
-          <div class="scene-credit"><a href="#fontes">Imagem © INPE</a><a id="osm-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" hidden>© OpenStreetMap contributors</a></div>
-          <div class="model-bottom">
-            <p id="floor-status" class="floor-status" aria-live="polite">Arraste para girar · Explore o 11º pavimento</p>
-            <div id="model-controls" class="model-controls" role="group" aria-label="Controles da maquete">
-              <button type="button" data-camera="left" aria-label="Girar à esquerda" title="Girar à esquerda">↶</button>
-              <button type="button" data-camera="right" aria-label="Girar à direita" title="Girar à direita">↷</button>
-              <button type="button" data-camera="out" aria-label="Afastar" title="Afastar">−</button>
-              <button type="button" data-camera="in" aria-label="Aproximar" title="Aproximar">+</button>
-              <button type="button" data-camera="reset" aria-label="Restaurar vista" title="Restaurar vista">⌂</button>
-            </div>
+        </div>
+        <div class="viewer-footer">
+          <p id="floor-status" class="floor-status" aria-live="polite">Arraste para girar · Explore o 11º pavimento</p>
+          <div id="model-controls" class="model-controls" role="group" aria-label="Controles da maquete">
+            <button type="button" data-camera="left" aria-label="Girar à esquerda" title="Girar à esquerda">↶</button>
+            <button type="button" data-camera="right" aria-label="Girar à direita" title="Girar à direita">↷</button>
+            <button type="button" data-camera="out" aria-label="Afastar" title="Afastar">−</button>
+            <button type="button" data-camera="in" aria-label="Aproximar" title="Aproximar">+</button>
+            <button type="button" data-camera="reset" aria-label="Restaurar vista" title="Restaurar vista">⌂</button>
           </div>
+          <div class="scene-credit"><a href="#fontes">Imagem © INPE</a><a id="osm-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" hidden>© OpenStreetMap contributors</a></div>
         </div>
       </section>
 
       <aside class="residences" aria-labelledby="units-title">
-        <section id="plan-stage" class="plan-stage" aria-labelledby="plan-title" hidden>
-          <div class="stage-heading">
-            <p class="eyebrow">Planta de navegação</p>
-            <h2 id="plan-title" tabindex="-1">11º pavimento</h2>
+        <div class="sheet-header" id="sheet-header" hidden>
+          <div>
+            <span id="sheet-selection">11º pavimento</span>
+            <button class="sheet-toggle" id="sheet-toggle" type="button" aria-expanded="true" aria-controls="sheet-content">Recolher</button>
           </div>
-          <div class="plan" aria-label="Posição das unidades no 11º pavimento" role="group">
-            <span class="corridor corridor-vertical" aria-hidden="true"></span>
-            <span class="corridor corridor-horizontal" aria-hidden="true"></span>
-            <span class="footprint wing" aria-hidden="true"></span>
-            <span class="footprint front" aria-hidden="true"></span>
-            <span class="plan-cell" style="--x:17;--y:3;--w:22;--h:13" aria-hidden="true">01</span>
-            <span class="plan-cell" style="--x:17;--y:16;--w:22;--h:13" aria-hidden="true">02</span>
-            <button type="button" class="plan-cell plan-unit" style="--x:17;--y:29;--w:22;--h:15" data-unit="1103" aria-label="Unidade 1103, na ala posterior" aria-pressed="false"><span>1103</span><span aria-hidden="true">↗</span></button>
-            <span class="plan-cell" style="--x:17;--y:45;--w:14;--h:19" aria-hidden="true">04</span>
-            <span class="plan-cell" style="--x:3;--y:45;--w:14;--h:19" aria-hidden="true">05</span>
-            <span class="plan-cell" style="--x:3;--y:73;--w:16;--h:16" aria-hidden="true">06</span>
-            <span class="plan-cell" style="--x:19;--y:73;--w:12;--h:16" aria-hidden="true">07</span>
-            <button type="button" class="plan-cell plan-unit" style="--x:31;--y:73;--w:13;--h:16" data-unit="1108" aria-label="Unidade 1108, na ala da orla" aria-pressed="false"><span>1108</span><span aria-hidden="true">↗</span></button>
-            <span class="plan-cell" style="--x:44;--y:73;--w:13;--h:16" aria-hidden="true">09</span>
-            <span class="plan-cell" style="--x:57;--y:73;--w:7;--h:16" aria-hidden="true">10</span>
-            <span class="plan-cell" style="--x:64;--y:73;--w:7;--h:16" aria-hidden="true">11</span>
-            <span class="plan-cell" style="--x:71;--y:73;--w:7;--h:16" aria-hidden="true">12</span>
-            <span class="plan-cell" style="--x:78;--y:73;--w:7;--h:16" aria-hidden="true">13</span>
-            <span class="plan-cell" style="--x:85;--y:73;--w:7;--h:16" aria-hidden="true">14</span>
-            <span class="plan-cell" style="--x:92;--y:73;--w:5;--h:16" aria-hidden="true">15</span>
-            <span class="plan-cell" style="--x:85;--y:51;--w:12;--h:13" aria-hidden="true">16</span>
-            <span class="plan-cell" style="--x:73;--y:51;--w:12;--h:13" aria-hidden="true">17</span>
-            <span class="plan-cell" style="--x:61;--y:51;--w:12;--h:13" aria-hidden="true">18</span>
-            <span class="plan-cell" style="--x:49;--y:51;--w:12;--h:13" aria-hidden="true">19</span>
-            <span class="plan-coast" aria-hidden="true">Av. Sílvio Carlos Viana · Orla</span>
-          </div>
-          <div class="plan-footer">
-            <span>Posições aproximadas · Sem escala</span>
-            <a href="https://acetdkxqjkygfagvspmf.supabase.co/storage/v1/object/public/images/plantas/1773875574260-z9gcw2hm1up.png" target="_blank" rel="noopener">Planta da incorporadora ↗</a>
-          </div>
-        </section>
-        <p class="eyebrow" id="units-floor">11º pavimento</p>
-        <h2 id="units-title">Unidades</h2>
-        <p class="units-intro">Selecione uma unidade para localizar a planta e consultar os detalhes.</p>
-        <div class="unit-list" id="unit-list"></div>
-        <div id="unit-detail" class="unit-detail" hidden></div>
-        <button type="button" id="compare-open" class="compare-button">Comparar 1103 e 1108 <span aria-hidden="true">↗</span></button>
+          <button class="close-button" id="close-plan" type="button" aria-label="Fechar planta">×</button>
+        </div>
+        <div id="sheet-content">
+          <section id="plan-stage" class="plan-stage" aria-labelledby="plan-title" hidden>
+            <div class="stage-heading">
+              <p class="eyebrow">Planta de navegação</p>
+              <h2 id="plan-title" tabindex="-1">11º pavimento</h2>
+            </div>
+            <div class="plan" aria-label="Posição das unidades no 11º pavimento" role="group">
+              <span class="corridor corridor-vertical" aria-hidden="true"></span>
+              <span class="corridor corridor-horizontal" aria-hidden="true"></span>
+              <span class="footprint wing" aria-hidden="true"></span>
+              <span class="footprint front" aria-hidden="true"></span>
+              <span class="plan-cell" style="--x:17;--y:3;--w:22;--h:13" aria-hidden="true">01</span>
+              <span class="plan-cell" style="--x:17;--y:16;--w:22;--h:13" aria-hidden="true">02</span>
+              <button type="button" class="plan-cell plan-unit" style="--x:17;--y:29;--w:22;--h:15" data-unit="1103" aria-label="Unidade 1103, na ala posterior" aria-pressed="false"><span>1103</span><span aria-hidden="true">↗</span></button>
+              <span class="plan-cell" style="--x:17;--y:45;--w:14;--h:19" aria-hidden="true">04</span>
+              <span class="plan-cell" style="--x:3;--y:45;--w:14;--h:19" aria-hidden="true">05</span>
+              <span class="plan-cell" style="--x:3;--y:73;--w:16;--h:16" aria-hidden="true">06</span>
+              <span class="plan-cell" style="--x:19;--y:73;--w:12;--h:16" aria-hidden="true">07</span>
+              <button type="button" class="plan-cell plan-unit" style="--x:31;--y:73;--w:13;--h:16" data-unit="1108" aria-label="Unidade 1108, na ala da orla" aria-pressed="false"><span>1108</span><span aria-hidden="true">↗</span></button>
+              <span class="plan-cell" style="--x:44;--y:73;--w:13;--h:16" aria-hidden="true">09</span>
+              <span class="plan-cell" style="--x:57;--y:73;--w:7;--h:16" aria-hidden="true">10</span>
+              <span class="plan-cell" style="--x:64;--y:73;--w:7;--h:16" aria-hidden="true">11</span>
+              <span class="plan-cell" style="--x:71;--y:73;--w:7;--h:16" aria-hidden="true">12</span>
+              <span class="plan-cell" style="--x:78;--y:73;--w:7;--h:16" aria-hidden="true">13</span>
+              <span class="plan-cell" style="--x:85;--y:73;--w:7;--h:16" aria-hidden="true">14</span>
+              <span class="plan-cell" style="--x:92;--y:73;--w:5;--h:16" aria-hidden="true">15</span>
+              <span class="plan-cell" style="--x:85;--y:51;--w:12;--h:13" aria-hidden="true">16</span>
+              <span class="plan-cell" style="--x:73;--y:51;--w:12;--h:13" aria-hidden="true">17</span>
+              <span class="plan-cell" style="--x:61;--y:51;--w:12;--h:13" aria-hidden="true">18</span>
+              <span class="plan-cell" style="--x:49;--y:51;--w:12;--h:13" aria-hidden="true">19</span>
+              <span class="plan-coast" aria-hidden="true">Av. Sílvio Carlos Viana · Orla</span>
+            </div>
+            <div class="plan-footer">
+              <span>Posições aproximadas · Sem escala</span>
+              <a href="https://acetdkxqjkygfagvspmf.supabase.co/storage/v1/object/public/images/plantas/1773875574260-z9gcw2hm1up.png" target="_blank" rel="noopener">Planta da incorporadora ↗</a>
+            </div>
+          </section>
+
+          <h2 id="units-title">Unidades</h2>
+          <p class="units-intro">Explore as duas unidades do 11º pavimento.</p>
+          <div class="unit-list" id="unit-list"></div>
+          <div id="unit-detail" class="unit-detail" hidden></div>
+          <button type="button" id="compare-open" class="compare-button">Comparar 1103 e 1108 <span aria-hidden="true">↗</span></button>
+        </div>
       </aside>
     </div>
 
@@ -136,12 +139,13 @@
 
     <footer class="sources" id="fontes">
       <h2>Fontes e créditos</h2>
-      <p>Planta de navegação e maquete produzidas para esta demonstração. Dados das unidades consultados na tabela de 02/07/2026. Preços e disponibilidade podem ter mudado.</p>
-      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), recortada, reprojetada e com cores ajustadas. A fachada e a planta de navegação seguem as referências publicadas. A maquete e as alturas dos edifícios vizinhos são aproximadas. As alturas usam os dados disponíveis e estimativas por tipo de edifício.</p>
+      <p>Planta de navegação e maquete produzidas para esta demonstração. Demonstração independente. Dados das unidades consultados na tabela de 02/07/2026. Preços e disponibilidade podem ter mudado.</p>
+      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), recortada, reprojetada e com cores ajustadas. A fachada e a planta de navegação seguem as referências publicadas. O desenho das ruas, da ciclovia e dos volumes vizinhos usa dados do OpenStreetMap. A maquete, as larguras das vias e as alturas dos edifícios são aproximadas. As alturas usam os dados disponíveis e estimativas por tipo de edifício.</p>
       <ul>
         <li><a href="https://data.inpe.br/bdc/stac/v1/collections/CB4A-WPM-PCA-FUSED-1/items/CBERS4A_WPM_PCA_RGB321_20261002_192_125" target="_blank" rel="noopener">Imagem de satélite · INPE ↗</a></li>
-        <li><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">Contornos dos edifícios · OpenStreetMap, ODbL ↗</a></li>
-        <li><a href="aerial/osm-buildings.json">Dados dos contornos usados na cena ↓</a></li>
+        <li><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">Edifícios e vias · OpenStreetMap, ODbL ↗</a></li>
+        <li><a href="aerial/osm-buildings.json">Contornos dos edifícios ↓</a></li>
+        <li><a href="aerial/osm-streets.json">Geometria das vias ↓</a></li>
         <li><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">Licença da imagem · CC BY 4.0 ↗</a></li>
         <li><a href="https://coutinhoincorporacoes.com.br/empreendimentos/eef93708-9dc0-45ea-bf3e-68d5dec86f73" target="_blank" rel="noopener">Coutinho Incorporações ↗</a></li>
         <li><a href="https://www.hiltonimoveis.com.br/empreendimentos/five-ponta-verde" target="_blank" rel="noopener">Hilton Imóveis ↗</a></li>
@@ -160,7 +164,7 @@
     </div>
     <p id="compare-summary" class="compare-summary"></p>
     <div id="compare-plans" class="compare-plans"></div>
-    <p class="compare-plan-note">Contornos na mesma escala gráfica aproximada, derivados do mesmo pavimento tipo. Divisões indicativas a partir das plantas publicadas, que não informam a área por ambiente.</p>
+    <p class="compare-plan-note">Plantas esquemáticas na mesma escala gráfica aproximada. Portas, janelas e ambientes seguem as tipologias publicadas. As plantas não informam áreas por ambiente.</p>
     <div id="compare-content"></div>
     <p class="snapshot-note">Valores anunciados em 02/07/2026. Consulte a imobiliária para preço e disponibilidade atuais.</p>
   </dialog>
