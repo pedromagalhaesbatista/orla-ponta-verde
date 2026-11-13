@@ -31,33 +31,68 @@ const landmarks = {
 };
 const photographs = [
   {
+    id: 'panorama', file: 'panorama-ponta-verde.webp',
+    option: 'Panorama',
+    title: 'Praia de Ponta Verde · 2012',
+    kind: 'Panorama à beira-mar',
+    alt: 'Panorama diurno ao nível da praia, com areia, coqueiros e mar azul.',
+    author: 'André Lage Freitas', licence: '3.0',
+    source: 'Ponta_verde_%28panoramica%29.jpg'
+  },
+  {
+    id: 'praia',
     file: 'praia-ponta-verde.jpg',
     option: 'Praia',
     title: 'Praia de Ponta Verde · 2016',
+    kind: 'Vista da praia',
     alt: 'Faixa de areia de Ponta Verde com coqueiros, prédios à beira-mar e banhistas.',
     author: 'André Lage Freitas',
     source: 'Recreation_at_Ponta_Verde_beach_landscape_-_Macei%C3%B3%2C_Brazil.jpg'
   },
   {
+    id: 'farol', file: 'farol-ponta-verde.webp',
+    option: 'Farol',
+    title: 'Farol de Ponta Verde · 2016',
+    kind: 'Vista da praia',
+    alt: 'Vista diurna do Farol de Ponta Verde a partir da praia.',
+    author: 'André Lage Freitas',
+    source: 'Couple_and_Lighthouse_at_Ponta_Verde_beach_-_Macei%C3%B3%2C_Brazil.jpg'
+  },
+  {
+    id: 'drone',
     file: 'ponta-verde-drone.jpg',
-    option: 'Ponta Verde',
+    option: 'Vista de drone',
     title: 'Ponta Verde vista por drone · 2021',
+    kind: 'Vista aérea',
     alt: 'Vista de drone da ponta de Ponta Verde com prédios e luzes da orla ao anoitecer.',
     author: 'Arthur C A Bezerra',
     source: 'Foto_de_Macei%C3%B3.jpg'
   },
   {
+    id: 'entardecer',
     file: 'ponta-verde.jpg',
     option: 'Entardecer',
     title: 'Ponta Verde ao entardecer · 2016',
+    kind: 'Vista aérea',
     alt: 'Vista aérea da ponta de Ponta Verde, entre duas enseadas, ao entardecer.',
     author: 'Ricardo Lêdo',
     source: 'Vista_da_praia_de_Ponta_Verde.jpg'
   },
   {
+    id: 'crepusculo', file: 'orla-crepusculo.webp',
+    option: 'Orla ao anoitecer',
+    title: 'Orla de Ponta Verde · 2015',
+    kind: 'Vista da praia',
+    alt: 'Coqueiros em silhueta à beira-mar e luzes da orla ao fundo.',
+    author: 'Yuri Cedrim Lessa', licence: '3.0',
+    source: 'Orla_de_Ponta_Verde%2C_Macei%C3%B3-AL.JPG'
+  },
+  {
+    id: 'litoral',
     file: 'litoral-maceio.jpg',
     option: 'Litoral',
     title: 'Sobrevoo do litoral de Maceió · 2017',
+    kind: 'Vista aérea',
     alt: 'Litoral de Maceió visto da janela de um avião.',
     author: 'Hooper2002',
     source: '1_-_Sobrevoo_sobre_o_Litoral_de_Macei%C3%B3_-_AL.jpg'
@@ -102,6 +137,12 @@ const visitBar = $('#visit-bar');
 const visitMarkers = $('#visit-markers');
 const visitCard = $('#visit-card');
 const returnUnit = $('#return-unit');
+const satelliteToggle = $('#satellite-toggle');
+const photoDialog = $('#photo-dialog');
+const photoViewport = $('#photo-viewport');
+const photoImage = $('#aerial-photo');
+const photoZoom = $('#photo-zoom');
+let satelliteOnly = false;
 const unitSwitcher = $('#unit-switcher');
 let selectedLandmark = null;
 let lastLandmarkControl = null;
@@ -113,7 +154,6 @@ const beachLabel = $('#beach-label');
 const avenueLabel = $('#avenue-label');
 const groundImage = $('#satellite-ground');
 const sceneLabel = $('#scene-label');
-const aerialGallery = $('#aerial-gallery');
 let activeView = 'model';
 const model = window.createBuilding(canvas, {
   availableFloors: new Set(['11']),
@@ -225,10 +265,17 @@ $('#model-fallback').hidden = Boolean(model);
 groundImage.hidden = !model;
 function reportUnavailableImagery() {
   groundImage.hidden = true;
+  satelliteToggle.disabled = true;
+  setSatelliteOnly(false);
   sceneLabel.textContent = 'Imagem de satélite indisponível';
 }
-groundImage.addEventListener('error', reportUnavailableImagery);
-if (groundImage.complete && !groundImage.naturalWidth) reportUnavailableImagery();
+function recoverGroundImage() {
+  if (groundImage.getAttribute('src') !== 'aerial/ponta-verde-cbers.jpg') {
+    groundImage.src = 'aerial/ponta-verde-cbers.jpg';
+  } else reportUnavailableImagery();
+}
+groundImage.addEventListener('error', recoverGroundImage);
+if (groundImage.complete && !groundImage.naturalWidth) recoverGroundImage();
 $('#model-controls').hidden = !model;
 $('.scene-presets').hidden = !model;
 floorChip.hidden = false;
@@ -258,6 +305,7 @@ function setView(view, { cameraAction, updateUrl = true } = {}) {
   if (simulating) setSimulation(false);
   activeView = view;
   if (view !== 'aerial') closeLandmark();
+  if (view !== 'aerial') setSatelliteOnly(false);
   workspace.classList.toggle('aerial-open', view === 'aerial');
   model?.showFootprint(view === 'aerial');
   for (const button of $$('.view-switch [data-view]')) {
@@ -324,6 +372,18 @@ function updateSummary() {
   returnUnit.textContent = unit ? 'Voltar à ' + unit.id : '';
 }
 
+function setSatelliteOnly(enabled) {
+  satelliteOnly = enabled;
+  satelliteToggle.setAttribute('aria-pressed', String(enabled));
+  satelliteToggle.textContent = enabled ? 'Mostrar maquete' : 'Só satélite';
+  satelliteToggle.setAttribute('aria-label', enabled ? 'Mostrar maquete sobre o satélite' : 'Ver imagem de satélite sem a maquete');
+  model?.showSatelliteOnly(enabled);
+  if (!simulating) canvas.setAttribute('aria-label', enabled ? 'Imagem de satélite de Ponta Verde com o perímetro aproximado do Five Flex Life'
+    : 'Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde');
+}
+
+satelliteToggle.addEventListener('click', () => setSatelliteOnly(!satelliteOnly));
+
 function openLandmark(id, control) {
   const { title, text, location } = landmarks[id];
   selectedLandmark = id;
@@ -350,7 +410,9 @@ function setSheetExpanded(expanded) {
   workspace.classList.toggle('sheet-collapsed', !expanded);
   sheetContent.inert = !expanded;
   panelToggle.setAttribute('aria-expanded', String(expanded));
-  panelToggle.textContent = expanded ? 'Recolher painel' : 'Abrir painel';
+  const label = expanded ? 'Recolher painel' : 'Abrir painel';
+  panelToggle.setAttribute('aria-label', label);
+  panelToggle.querySelector('.panel-toggle-full').textContent = label;
   sheetToggle.setAttribute('aria-expanded', String(expanded));
   sheetToggle.textContent = expanded ? 'Recolher' : 'Abrir painel';
   floorChip.setAttribute('aria-expanded', String(expanded && panelOpen && activePanel === 'plan'));
@@ -414,17 +476,7 @@ for (const button of $$('[data-landmark]')) {
   button.addEventListener('click', () => openLandmark(button.dataset.landmark, button));
 }
 $('#visit-close').addEventListener('click', () => closeLandmark(true));
-$('#visit-photo').addEventListener('click', () => {
-  aerialGallery.open = true;
-  showPhotograph(0);
-  aerialGallery.querySelector('summary').focus({ preventScroll: true });
-  aerialGallery.scrollIntoView({ block: 'start' });
-});
 $('#exit-sim').addEventListener('click', () => setSimulation(false, true));
-
-aerialGallery.addEventListener('toggle', () => {
-  if (aerialGallery.open && selectedPhoto === null) showPhotograph(0);
-});
 
 function unitPlanLink(unit, label) {
   return '<a class="plan-link" target="_blank" rel="noopener" href="' + planDirectory + unit.plan + '">' + label + ' ↗</a>';
@@ -504,6 +556,7 @@ function renderUnit() {
       <button type="button" class="text-button" id="copy-unit">Copiar link da unidade</button>
     </div>
     ${id === '1108' ? `<div class="nearby-footage"><strong>Sobrevoo real da orla</strong><span>Ponta Verde · Farol, Rua Fechada e Marco dos Corais</span>
+      <button type="button" class="text-button" data-open-photo="panorama" aria-haspopup="dialog">Ver panorama da praia</button>
       <a href="https://www.youtube.com/watch?v=blCQvmzeiV0" target="_blank" rel="noopener">Assistir ao vídeo ↗</a>
       <a href="https://www.openstreetmap.org/node/1181443792" target="_blank" rel="noopener">Localizar o Farol ↗</a></div>` : ''}`;
   drawPlan(detail.querySelector('canvas'), id);
@@ -552,6 +605,7 @@ function focusUnitInScene(unit, rotate) {
 }
 
 function setSimulation(enabled, focus = false) {
+  if (enabled && satelliteOnly) setSatelliteOnly(false);
   simulating = enabled;
   model?.simulate(enabled);
   workspace.classList.toggle('simulating', enabled);
@@ -591,26 +645,63 @@ function showPhotograph(index) {
   selectedPhoto = index;
   const photo = photographs[index];
   const sourceUrl = 'https://commons.wikimedia.org/wiki/File:' + photo.source;
-  const image = $('#aerial-photo');
-  image.hidden = false;
-  image.alt = photo.alt;
+  const licence = photo.licence || '4.0';
+  photoImage.hidden = false;
+  photoImage.alt = photo.alt;
   $('#aerial-fallback').hidden = true;
   $('#aerial-fallback-link').href = sourceUrl;
-  $('#aerial-title').textContent = photo.title;
+  $('#photo-title').textContent = photo.title;
+  $('#photo-kind').textContent = photo.kind;
   $('#aerial-source').textContent = photo.author;
   $('#aerial-source').href = sourceUrl;
-  for (const button of $$('[data-photo]')) {
-    button.setAttribute('aria-pressed', String(Number(button.dataset.photo) === index));
-  }
-  image.src = 'aerial/' + photo.file;
+  $('#aerial-license').textContent = 'CC BY-SA ' + licence;
+  $('#aerial-license').href = 'https://creativecommons.org/licenses/by-sa/' + licence + '/';
+  $('#photo-count').textContent = (index + 1) + ' de ' + photographs.length;
+  photoViewport.classList.toggle('photo-panorama', photo.id === 'panorama');
+  photoZoom.disabled = false;
+  setPhotoZoom(false);
+  photoImage.src = 'aerial/' + photo.file;
 }
 
-$('#aerial-photo').addEventListener('error', () => {
-  $('#aerial-photo').hidden = true;
+function setPhotoZoom(enabled) {
+  photoZoom.setAttribute('aria-pressed', String(enabled));
+  photoZoom.textContent = enabled ? 'Ajustar à tela' : 'Ampliar foto';
+  photoViewport.classList.toggle('photo-enlarged', enabled);
+  photoViewport.scrollTo({
+    left: enabled ? (photoViewport.scrollWidth - photoViewport.clientWidth) / 2 : 0,
+    top: enabled ? (photoViewport.scrollHeight - photoViewport.clientHeight) / 2 : 0
+  });
+}
+
+function stepPhoto(direction) {
+  showPhotograph((selectedPhoto + direction + photographs.length) % photographs.length);
+}
+
+photoImage.addEventListener('error', () => {
+  photoImage.hidden = true;
+  photoZoom.disabled = true;
   $('#aerial-fallback').hidden = false;
 });
-$('#aerial-options').innerHTML = photographs.map((photo, index) => `
-  <button type="button" data-photo="${index}" aria-pressed="false">${photo.option}</button>`).join('');
+photoZoom.addEventListener('click', () => setPhotoZoom(photoZoom.getAttribute('aria-pressed') !== 'true'));
+$('#photo-prev').addEventListener('click', () => stepPhoto(-1));
+$('#photo-next').addEventListener('click', () => stepPhoto(1));
+photoDialog.addEventListener('keydown', event => {
+  if (!['ArrowLeft', 'ArrowRight'].includes(event.key) || photoViewport.classList.contains('photo-enlarged')) return;
+  event.preventDefault();
+  stepPhoto(event.key === 'ArrowLeft' ? -1 : 1);
+});
+
+$('#aerial-options').innerHTML = photographs.map(photo => `
+  <button type="button" class="gallery-photo" data-open-photo="${photo.id}" aria-haspopup="dialog">
+    <img src="aerial/${photo.file.replace(/\.[^.]+$/, '-thumb.webp')}" width="224" height="126" alt="" loading="lazy" decoding="async">
+    <span>${photo.option}</span><span class="gallery-photo-date">${photo.title.slice(-4)}</span>
+  </button>`).join('');
+document.addEventListener('click', event => {
+  const opener = event.target.closest('[data-open-photo]');
+  if (!opener) return;
+  showPhotograph(photographs.findIndex(photo => photo.id === opener.dataset.openPhoto));
+  if (!photoDialog.open) photoDialog.showModal();
+});
 
 const comparisonRows = [
   ['Área privativa', unit => formatArea(unit.area)],
@@ -837,9 +928,6 @@ for (const button of $$('[data-camera]')) {
 }
 for (const button of scenePresets) {
   button.addEventListener('click', () => setView('model', { cameraAction: button.dataset.preset }));
-}
-for (const button of $$('[data-photo]')) {
-  button.addEventListener('click', () => showPhotograph(Number(button.dataset.photo)));
 }
 $('#compare-open').addEventListener('click', () => openPanel('compare', { focus: true }));
 $('#expand-compare').addEventListener('click', () => {

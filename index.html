@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=five-8">
-  <script src="building.js?v=five-8" defer></script>
-  <script src="app.js?v=five-8" defer></script>
+  <link rel="stylesheet" href="style.css?v=five-9">
+  <script src="building.js?v=five-9" defer></script>
+  <script src="app.js?v=five-9" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -32,12 +32,13 @@
           </div>
           <div class="viewer-links">
             <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=Edif%C3%ADcio%20Five%20Flex%20Life%2C%20Avenida%20Silvio%20Carlos%20Viana%201811%2C%20Macei%C3%B3" target="_blank" rel="noopener">Mapa <span aria-hidden="true">↗</span></a>
-            <button type="button" class="panel-button" id="panel-toggle" aria-controls="sheet-content" aria-expanded="true">Recolher painel</button>
+            <button type="button" class="panel-button" data-open-photo="panorama" aria-haspopup="dialog" aria-label="Abrir fotos de Ponta Verde">Fotos</button>
+            <button type="button" class="panel-button" id="panel-toggle" aria-controls="sheet-content" aria-expanded="true" aria-label="Recolher painel"><span class="panel-toggle-full">Recolher painel</span><span class="panel-toggle-short" aria-hidden="true">Painel</span></button>
           </div>
         </div>
 
         <div id="model-stage" class="model-stage">
-          <img id="satellite-ground" class="satellite-ground" src="aerial/ponta-verde-cbers.jpg?v=five-6" width="1152" height="1152" alt="">
+          <img id="satellite-ground" class="satellite-ground" src="aerial/ponta-verde-cbers.webp" width="1152" height="1152" alt="">
           <canvas id="building-canvas" tabindex="0" aria-label="Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde" aria-describedby="model-instructions"></canvas>
           <button type="button" class="site-pin" id="site-pin" aria-label="Aproximar de Five Flex Life" hidden>Five Flex Life</button>
           <div class="compass" id="compass" role="img" aria-label="Rumo da câmera: norte" hidden>
@@ -61,7 +62,7 @@
             <p id="visit-description"></p>
             <div class="visit-actions">
               <a id="visit-map" target="_blank" rel="noopener">Abrir no mapa ↗</a>
-              <button type="button" class="text-button" id="visit-photo" hidden>Ver foto da praia ↓</button>
+              <button type="button" class="text-button" id="visit-photo" data-open-photo="praia" aria-haspopup="dialog" hidden>Ver foto da praia</button>
             </div>
           </section>
           <button type="button" class="unit-pin" data-unit-pin="1103" aria-label="Selecionar unidade 1103 na fachada" aria-pressed="false" hidden>1103</button>
@@ -74,7 +75,7 @@
               <div>
                 <strong>Varanda da 1108</strong>
                 <span>Posição e direção da câmera</span>
-                <a href="https://www.youtube.com/watch?v=blCQvmzeiV0" target="_blank" rel="noopener">Sobrevoo de Ponta Verde ↗</a>
+                <button type="button" class="text-button" data-open-photo="panorama" aria-haspopup="dialog">Ver panorama da praia</button>
               </div>
             </div>
           </div>
@@ -97,6 +98,7 @@
             <button type="button" data-landmark="promenade" aria-controls="visit-card" aria-pressed="false">Calçadão</button>
             <button type="button" data-landmark="beach" aria-controls="visit-card" aria-pressed="false">Acesso à praia</button>
           </div>
+          <button type="button" id="satellite-toggle" aria-pressed="false" aria-label="Ver imagem de satélite sem a maquete">Só satélite</button>
           <button type="button" id="return-unit" hidden></button>
         </div>
         <div class="viewer-footer">
@@ -185,29 +187,21 @@
       </aside>
     </div>
 
-    <details id="aerial-gallery" class="aerial-gallery">
-      <summary>Fotos e sobrevoo de Ponta Verde</summary>
-      <div class="aerial-stage">
-        <figure class="aerial-figure">
-          <img id="aerial-photo" alt="">
-          <div class="aerial-fallback" id="aerial-fallback" hidden>Foto indisponível. <a id="aerial-fallback-link" href="#fontes" target="_blank" rel="noopener">Abrir imagem na fonte ↗</a></div>
-          <figcaption id="aerial-caption">
-            <span id="aerial-title"></span>
-            <span><a id="aerial-source" target="_blank" rel="noopener"></a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> · JPEG otimizado</span>
-          </figcaption>
-        </figure>
-        <div class="aerial-toolbar">
-          <div id="aerial-options" class="aerial-options" role="group" aria-label="Fotos do entorno"></div>
-          <a href="https://www.youtube.com/watch?v=v5W3nDjcgIw" target="_blank" rel="noopener">Sobrevoo de 2026 ↗</a>
+    <section id="aerial-gallery" class="aerial-gallery" aria-labelledby="gallery-title">
+      <div class="gallery-heading">
+        <h2 id="gallery-title">A orla em fotografias</h2>
+        <div class="gallery-links">
+          <a href="https://www.youtube.com/watch?v=blCQvmzeiV0" target="_blank" rel="noopener">Sobrevoo de Ponta Verde ↗</a>
+          <a href="https://coutinhoincorporacoes.com.br/empreendimentos/eef93708-9dc0-45ea-bf3e-68d5dec86f73" target="_blank" rel="noopener">Perspectivas do Five · Coutinho ↗</a>
         </div>
-        <p class="aerial-note">Fotografias da orla e do bairro feitas entre 2016 e 2021.</p>
       </div>
-    </details>
+      <div class="gallery-grid" id="aerial-options"></div>
+    </section>
 
     <footer class="sources" id="fontes">
       <h2>Fontes e créditos</h2>
       <p>Planta de navegação e maquete produzidas para esta demonstração. Demonstração independente. Dados das unidades consultados na tabela de 02/07/2026. Preços e disponibilidade podem ter mudado.</p>
-      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), recortada, reprojetada e com cores ajustadas. A fachada e a implantação aproximadas seguem as perspectivas da Coutinho e o estudo da UFAL. As ruas, a ciclovia, as áreas verdes e os volumes vizinhos usam dados do OpenStreetMap. As larguras das vias, as alturas dos edifícios e os detalhes das fachadas vizinhas são aproximados. A vista da unidade 1108 é uma simulação a partir de uma posição aproximada na maquete.</p>
+      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), com resolução de origem de 2 m, recortada, reprojetada e tratada para realçar os detalhes existentes. A fachada e a implantação aproximadas seguem as perspectivas da Coutinho e o estudo da UFAL. As ruas, a ciclovia, as áreas verdes e os volumes vizinhos usam dados do OpenStreetMap. As larguras das vias, as alturas dos edifícios e os detalhes das fachadas vizinhas são aproximados. A vista da unidade 1108 é uma simulação a partir de uma posição aproximada na maquete.</p>
       <ul>
         <li><a href="https://data.inpe.br/bdc/stac/v1/collections/CB4A-WPM-PCA-FUSED-1/items/CBERS4A_WPM_PCA_RGB321_20261002_192_125" target="_blank" rel="noopener">Imagem de satélite · INPE ↗</a></li>
         <li><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">Edifícios e vias · OpenStreetMap, ODbL ↗</a></li>
@@ -224,6 +218,31 @@
       </ul>
     </footer>
   </main>
+
+  <dialog id="photo-dialog" aria-labelledby="photo-title">
+    <div class="photo-dialog-header">
+      <div>
+        <p id="photo-kind"></p>
+        <h2 id="photo-title"></h2>
+      </div>
+      <form method="dialog"><button class="close-button" aria-label="Fechar fotos" autofocus>×</button></form>
+    </div>
+    <figure class="photo-viewer">
+      <div id="photo-viewport" class="photo-viewport" tabindex="0" aria-label="Fotografia">
+        <img id="aerial-photo" alt="">
+        <p class="photo-fallback" id="aerial-fallback" hidden>Foto indisponível. <a id="aerial-fallback-link" target="_blank" rel="noopener">Abrir imagem na fonte ↗</a></p>
+      </div>
+      <figcaption class="photo-caption">
+        <span><a id="aerial-source" target="_blank" rel="noopener"></a> · <a id="aerial-license" target="_blank" rel="noopener"></a> · versão para web</span>
+        <button type="button" class="text-button" id="photo-zoom" aria-pressed="false">Ampliar foto</button>
+      </figcaption>
+    </figure>
+    <div class="photo-nav" aria-label="Navegar pelas fotos">
+      <button type="button" id="photo-prev" aria-label="Foto anterior">←</button>
+      <output id="photo-count" aria-live="polite"></output>
+      <button type="button" id="photo-next" aria-label="Próxima foto">→</button>
+    </div>
+  </dialog>
 
   <dialog id="compare-dialog" aria-labelledby="compare-title">
     <div class="dialog-top">

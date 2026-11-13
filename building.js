@@ -218,6 +218,7 @@
     const camera = cameraView(initialView);
     let preset = 'orla';
     let outlineVisible = false;
+    let satelliteOnly = false;
     let width = 0;
     let height = 0;
     let frame = 0;
@@ -307,7 +308,7 @@
         element.style.transform = 'matrix3d(' + matrix.join(',') + ')';
       }
 
-      const faces = cameraFaces();
+      const faces = satelliteOnly && !simulation ? [] : cameraFaces();
       const unitPoints = {};
       if (!simulation) {
         for (const { surface, points } of faces) {
@@ -337,6 +338,12 @@
         width,
         height
       });
+
+      projectedFaces = simulation ? [] : faces;
+      if (satelliteOnly && !simulation) {
+        drawFootprint();
+        return;
+      }
 
       function cameraFaces() {
         const visible = [];
@@ -426,7 +433,6 @@
         ctx.fill();
       }
 
-      projectedFaces = simulation ? [] : faces;
       for (const { surface, points } of faces) {
         if (surface.unit) {
           const active = surface.unit === selectedUnit;
@@ -478,7 +484,9 @@
           ctx.fill();
         }
       }
-      if (outlineVisible && !simulation) {
+      drawFootprint();
+      function drawFootprint() {
+        if (!outlineVisible || simulation) return;
         trace(ctx, towerFootprint.map(([x, z]) => project([x, -.10, z])));
         ctx.strokeStyle = '#183a31';
         ctx.lineWidth = 6;
@@ -570,9 +578,16 @@
         case 'aerial': moveTo(aerialView); return;
         case 'entrance': moveTo(entranceView); return;
         case 'rear': moveTo(rearView); return;
+        case 'reset':
+          if (outlineVisible) {
+            preset = null;
+            moveTo(aerialView);
+            return;
+          }
+          moveTo(initialView);
+          return;
         case 'orla':
-        case 'model':
-        case 'reset': moveTo(initialView); return;
+        case 'model': moveTo(initialView); return;
       }
       reportZoom();
       setHover(null);
@@ -669,6 +684,11 @@
       changeView,
       showFootprint(visible) {
         outlineVisible = visible;
+        redraw();
+      },
+      showSatelliteOnly(enabled) {
+        satelliteOnly = enabled;
+        setHover(null);
         redraw();
       },
       showUnit(id, { rotate = true } = {}) {
