@@ -9,9 +9,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=five-12">
-  <script src="building.js?v=five-12" defer></script>
-  <script src="app.js?v=five-12" defer></script>
+  <link rel="stylesheet" href="style.css?v=five-13">
+  <script src="building.js?v=five-13" defer></script>
+  <script src="interior.js?v=five-13" defer></script>
+  <script src="app.js?v=five-13" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -40,6 +41,25 @@
         <div id="model-stage" class="model-stage">
           <img id="satellite-ground" class="satellite-ground" src="aerial/ponta-verde-cbers.webp" width="1152" height="1152" alt="">
           <canvas id="building-canvas" tabindex="0" aria-label="Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde" aria-describedby="model-instructions"></canvas>
+          <section class="interior-view" id="interior-view" aria-labelledby="interior-title" hidden>
+            <header class="interior-header">
+              <div><h2 id="interior-title">Unidade 1108</h2><p>Planta em 3D · Mobiliário ilustrativo</p></div>
+              <button type="button" id="close-interior">Voltar ao edifício</button>
+            </header>
+            <canvas id="interior-canvas" role="img" aria-label="Maquete ilustrativa mobiliada da unidade 1108"></canvas>
+            <div class="interior-inset">
+              <canvas id="interior-plan" width="208" height="244" role="img" aria-label="Planta da unidade 1108 com o ambiente selecionado destacado"></canvas>
+            </div>
+            <div class="interior-footer">
+              <div class="interior-rooms" role="group" aria-label="Ambientes da unidade 1108">
+                <button type="button" data-room="overview" aria-pressed="true">Visão geral</button>
+                <button type="button" data-room="living" aria-pressed="false">Sala</button>
+                <button type="button" data-room="suite" aria-pressed="false">Suíte</button>
+                <button type="button" data-room="balcony" aria-pressed="false">Varanda</button>
+              </div>
+              <button type="button" id="interior-balcony" hidden>Vista simulada da varanda ↗</button>
+            </div>
+          </section>
           <section class="frontage-view" id="frontage-view" aria-labelledby="frontage-title" hidden>
             <div class="frontage-bar">
               <div><strong id="frontage-title">Five Flex Life em construção</strong><span>Street View · Abril de 2026</span></div>
@@ -121,10 +141,12 @@
             <div class="scene-unit" id="scene-unit" hidden>
               <strong id="scene-unit-name"></strong>
               <button type="button" data-unit-action="plan" aria-controls="plan-stage">Planta</button>
+              <button type="button" data-open-interior aria-controls="interior-view" id="scene-unit-interior">Interior 3D</button>
               <button type="button" data-unit-action="view" id="scene-unit-view">Vista simulada</button>
             </div>
             <button type="button" class="angle-button" id="rotate-to-unit" hidden>Girar até a unidade <span aria-hidden="true">↻</span></button>
           </div>
+          <button type="button" class="explore-units" id="explore-units" aria-pressed="false" hidden>Explorar unidades</button>
           <button type="button" class="floor-chip" aria-controls="plan-stage" aria-expanded="false" aria-label="Abrir planta do 11º pavimento"><b>11º</b><span class="floor-chip-label">Pavimento</span><span aria-hidden="true">↗</span></button>
           <output id="floor-tooltip" class="floor-tooltip" aria-hidden="true" hidden></output>
         </div>
@@ -222,6 +244,7 @@
             <div class="compare-unit-head" aria-hidden="true"><span>Unidades</span><strong>1103</strong><strong>1108</strong></div>
             <p id="compare-panel-summary"></p>
             <div id="compare-panel-facts"></div>
+            <div class="compare-mode" data-compare-mode></div>
             <div class="plan-viewport" tabindex="0" aria-label="Plantas em comparação"><div id="compare-panel-plans" class="compare-plans"></div></div>
             <div class="plan-zoom" role="group" aria-label="Zoom das duas plantas" data-plan-zoom="compare"></div>
             <button type="button" id="expand-compare" class="compare-button">Ampliar comparação <span aria-hidden="true">↗</span></button>
@@ -256,6 +279,7 @@
         <li><a href="aerial/osm-buildings.json">Contornos dos edifícios ↓</a></li>
         <li><a href="aerial/osm-streets.json">Geometria das vias ↓</a></li>
         <li><a href="aerial/osm-parks.json">Áreas verdes do entorno ↓</a></li>
+        <li><a href="https://www.openstreetmap.org/way/861226957" target="_blank" rel="noopener">Linha de costa · OpenStreetMap ↗</a></li>
         <li><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">Licença da imagem · CC BY 4.0 ↗</a></li>
         <li><a href="https://coutinhoincorporacoes.com.br/empreendimentos/eef93708-9dc0-45ea-bf3e-68d5dec86f73" target="_blank" rel="noopener">Coutinho Incorporações ↗</a></li>
         <li><a href="https://www.repositorio.ufal.br/jspui/handle/123456789/15662" target="_blank" rel="noopener">Implantação · UFAL, ficha 27 ↗</a></li>
@@ -306,6 +330,7 @@
     </div>
     <p id="compare-summary" class="compare-summary"></p>
     <div id="compare-content"></div>
+    <div class="compare-mode" data-compare-mode></div>
     <div class="plan-viewport" tabindex="0" aria-label="Plantas em comparação"><div id="compare-plans" class="compare-plans"></div></div>
     <div class="plan-zoom" role="group" aria-label="Zoom das duas plantas" data-plan-zoom="compare"></div>
     <p class="compare-plan-note">Plantas esquemáticas na mesma escala gráfica aproximada. Portas, janelas e ambientes seguem as tipologias publicadas. As plantas não informam áreas por ambiente.</p>

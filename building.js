@@ -1,5 +1,5 @@
 (() => {
-  const initialView = { yaw: -.24, pitch: .75, zoom: .46, target: 2.8, frameOffset: .08 };
+  const initialView = { yaw: -.22, pitch: .71, zoom: .55, target: 2.65, frameOffset: .04 };
   const unitView = { yaw: -.31, pitch: .53, zoom: .90, target: 5.5 };
   const facadeView = { yaw: .50, pitch: .38, zoom: .88, target: 5.1, frameOffset: .20 };
   const entranceView = { yaw: .34, pitch: .38, zoom: 1.27, target: 2.7 };
@@ -235,11 +235,18 @@
       const top = Math.min(...outline.map(([, z]) => z));
       const bottom = Math.max(...outline.map(([, z]) => z));
       const polygon = outline.map(([x, z]) => ({ x, y: z }));
-      for (let x = left + 2; x < right - 1; x += 2.6) {
-        const index = palms.length;
-        const z = top + (bottom - top) * (.42 + .23 * Math.sin(x * 1.27));
-        if (!contains(polygon, x, z)) continue;
-        palms.push({ x, z, y: 1.35 + .54 * (Math.sin(index * 3.8) + 1) / 2, angle: index * 2.39 });
+      for (let x = left + 1.3; x < right - 1; x += 2.1) {
+        const inside = [];
+        for (let z = top; z < bottom; z += .26) {
+          if (contains(polygon, x, z)) inside.push(z);
+        }
+        if (inside.length < 2) continue;
+        const fractions = inside.length > 12 && Math.sin(x * 2) > -.25 ? [.28, .75] : [.51];
+        for (const fraction of fractions) {
+          const index = palms.length;
+          const z = inside[Math.floor((inside.length - 1) * fraction)];
+          palms.push({ x, z, y: 1.28 + .72 * (Math.sin(index * 3.8) + 1) / 2, angle: index * 2.39 });
+        }
       }
     }
     return palms;
@@ -274,10 +281,12 @@
     let neighbours = [];
     let streets = [];
     let parks = [];
+    let shoreline = [];
     let palms = [];
     const railing = balconySurfaces();
     let contactOutlines = [];
     let selectedUnit = null;
+    let floorEmphasis = false;
     const camera = cameraView(initialView);
     let preset = 'orla';
     let outlineVisible = false;
@@ -444,6 +453,17 @@
         ctx.strokeStyle = '#bdc39a84';
         ctx.stroke();
       }
+      if (!simulation && shoreline.length > 1) {
+        const edge = shoreline.map(([x, z]) => project([x, -.235, z]));
+        if (edge.every(point => point.w > .02)) {
+          ctx.beginPath();
+          ctx.moveTo(edge[0].x, edge[0].y);
+          for (const point of edge.slice(1)) ctx.lineTo(point.x, point.y);
+          ctx.strokeStyle = '#fbefd05e';
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+        }
+      }
       const streetOpacity = simulation ? .55 : clamp((camera.zoom - .20) / .44, 0, .76);
       if (streetOpacity > 0) {
         const streetStyles = {
@@ -559,7 +579,7 @@
         const { floor } = surface;
         if (!floor) continue;
         let tint;
-        if (floor === selected) tint = availableFloors.has(floor) ? (selectedUnit ? '#d6f29818' : '#d6f29834') : '#b5d9caa0';
+        if (floor === selected) tint = availableFloors.has(floor) ? (floorEmphasis ? '#d6f298ad' : selectedUnit ? '#d6f29818' : '#d6f29834') : '#b5d9caa0';
         else if (floor === hovered?.floor && !hovered.unit) tint = '#c2f5d294';
         else if (!selected && availableFloors.has(floor)) tint = '#b8f2cc29';
         if (tint) {
@@ -871,6 +891,10 @@
           moveTo(preset === 'rear' ? rearView : unitView);
         } else redraw();
       },
+      emphasizeFloor(enabled) {
+        floorEmphasis = enabled;
+        redraw();
+      },
       simulate(enabled) {
         flight = null;
         balconyPreset = 'sea';
@@ -890,6 +914,10 @@
       setParks(features) {
         parks = features;
         palms = palmsAlongParks(features);
+        redraw();
+      },
+      setShoreline(points) {
+        shoreline = points;
         redraw();
       },
       select(floor) {

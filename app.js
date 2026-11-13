@@ -145,6 +145,14 @@ const workspace = $('.workspace');
 const sheetHeader = $('#sheet-header');
 const sheetToggle = $('#sheet-toggle');
 const unitsDrawer = $('#units-drawer');
+const exploreUnits = $('#explore-units');
+const interiorView = $('#interior-view');
+const interiorBalcony = $('#interior-balcony');
+const roomButtons = $$('[data-room]');
+let interior;
+let interiorTimer = null;
+let roomBeforeSimulation = null;
+let unitsVisible = false;
 const panelToggle = $('#panel-toggle');
 const sheetContent = $('#sheet-content');
 const compareDialog = $('#compare-dialog');
@@ -223,9 +231,9 @@ const model = window.createBuilding(canvas, {
       pin.style.setProperty('--leader-length', Math.hypot(dx, dy) + 'px');
       pin.style.setProperty('--leader-angle', Math.atan2(dx, dy) + 'rad');
     }
-    const towerY = rooftop.y - 28;
+    const towerY = rooftop.y - 18;
     towerName.hidden = aerial || simulating || rooftop.w <= 0 || rooftop.x < 65 || rooftop.x > width - 65
-      || towerY < (width < 520 ? 108 : 63) || towerY > height - 22;
+      || towerY < (width < 520 ? 97 : 40) || towerY > height - 22;
     if (!towerName.hidden) place(towerName, { x: rooftop.x, y: towerY }, 0, width, 0, height);
     compass.hidden = false;
     const bearing = (Math.round(heading) + 360) % 360;
@@ -260,7 +268,7 @@ const model = window.createBuilding(canvas, {
       const point = points[button.dataset.unitPin];
       const raised = point && placedPins.some(previous =>
         Math.abs(previous.x - point.x) < 55 && Math.abs(previous.y - point.y) < 40);
-      button.hidden = !point || aerial || simulating;
+      button.hidden = !unitsVisible || !point || aerial || simulating;
       if (button.hidden) continue;
       place(button, point, 27, width - 27, 46, height - 20, 0, raised ? -45 : -5);
       placedPins.push(point);
@@ -335,7 +343,8 @@ if (model) {
   for (const [file, apply] of [
     ['osm-buildings.json', model.setNeighbours],
     ['osm-streets.json', model.setStreets],
-    ['osm-parks.json', model.setParks]
+    ['osm-parks.json', model.setParks],
+    ['osm-shoreline.json', model.setShoreline]
   ]) {
     fetch('aerial/' + file)
       .then(response => response.ok ? response.json() : [])
@@ -353,6 +362,7 @@ function place(element, point, minX, maxX, minY, maxY, offsetX = 0, offsetY = 0)
 }
 
 function setView(view, { cameraAction, updateUrl = true } = {}) {
+  leaveInterior();
   if (!frontageView.hidden) hideFrontage();
   const returningToUnit = activeView === 'aerial' && view === 'model' && !cameraAction && selectedUnit;
   if (simulating) setSimulation(false);
@@ -426,6 +436,7 @@ function renderPanel() {
 }
 
 function openPanel(name, { focus = false, updateUrl = true } = {}) {
+  leaveInterior();
   if (name === 'details' && !selectedUnit) name = 'plan';
   if (simulating) setSimulation(false);
   panelOpen = true;
@@ -440,20 +451,24 @@ function openPanel(name, { focus = false, updateUrl = true } = {}) {
 function updateSummary() {
   const unit = selectedUnit;
   $('#sheet-selection').textContent = unit ? 'Unidade ' + unit.id + ' · ' + formatArea(unit.area) : '11º pavimento';
-  $('#floor-status').textContent = simulating ? 'Arraste para olhar ao redor'
+  $('#floor-status').textContent = !interiorView.hidden ? 'Escolha um ambiente para aproximar'
+    : simulating ? 'Arraste para olhar ao redor'
     : walking ? `Percurso a pé · cerca de ${walkMetres} m`
     : activeView === 'aerial' ? (unit ? `Unidade ${unit.id} selecionada` : 'Selecione um ponto para ver a localização')
     : unit ? 'Unidade ' + unit.id + ' · ' + unit.wing
-    : 'Arraste para girar · Selecione uma unidade ou o 11º pavimento';
+    : 'Arraste para girar · Explore o 11º pavimento';
   visitBar.hidden = activeView !== 'aerial' || simulating || !model;
   visitMarkers.hidden = visitBar.hidden;
   $('#building-presets').hidden = activeView === 'aerial' || !model;
   $('#neighbourhood-presets').hidden = visitBar.hidden;
   returnUnit.hidden = !unit;
   returnUnit.textContent = unit ? 'Voltar à ' + unit.id : '';
-  $('#scene-unit').hidden = !unit || activeView !== 'model' || simulating || !model;
+  $('#scene-unit').hidden = !unit || activeView !== 'model' || simulating;
   $('#scene-unit-name').textContent = unit?.id || '';
   $('#scene-unit-view').hidden = unit?.id !== '1108';
+  $('#scene-unit-view').disabled = !model;
+  $('#scene-unit-interior').hidden = unit?.id !== '1108';
+  exploreUnits.hidden = activeView !== 'model' || !model || simulating || Boolean(unit);
   unitsDrawer.lastElementChild.textContent = unit ? `${unit.id} · ${formatArea(unit.area)}` : '11º pavimento';
 }
 
@@ -535,6 +550,19 @@ function setSheetExpanded(expanded) {
   floorChip.setAttribute('aria-expanded', String(expanded && panelOpen && activePanel === 'plan'));
 }
 
+function revealUnits() {
+  unitsVisible = true;
+  exploreUnits.setAttribute('aria-pressed', 'true');
+  model?.showUnit(selectedUnit?.id || null, { rotate: false });
+}
+
+exploreUnits.addEventListener('click', () => {
+  revealUnits();
+  setSheetExpanded(true);
+  if (mediaSmall.matches) unitsDrawer.focus({ preventScroll: true });
+  else $('#unit-list button')?.focus({ preventScroll: true });
+});
+
 function closePlan() {
   panelOpen = false;
   renderPanel();
@@ -547,19 +575,24 @@ for (const toggle of [panelToggle, sheetToggle, unitsDrawer]) {
   toggle.addEventListener('click', () => {
     const expanded = toggle.getAttribute('aria-expanded') !== 'true';
     setSheetExpanded(expanded);
+    if (expanded) revealUnits();
     if (toggle === unitsDrawer && expanded && panelOpen) {
       panelTabs.find(button => button.dataset.panel === activePanel).focus({ preventScroll: true });
     }
     if (toggle === sheetToggle && !expanded) unitsDrawer.focus({ preventScroll: true });
   });
 }
-floorChip.addEventListener('click', () => openPanel('plan', { focus: true }));
+floorChip.addEventListener('click', () => {
+  revealUnits();
+  openPanel('plan', { focus: true });
+});
 $('#close-plan').addEventListener('click', closePlan);
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open]')) return;
   if (selectedLandmark) closeLandmark(true);
   else if (!frontageView.hidden) hideFrontage({ restoreFocus: true });
-  else if (simulating) setSimulation(false, true);
+  else if (!interiorView.hidden || interiorTimer !== null) leaveInterior(true);
+  else if (simulating) exitSimulation();
   else if (panelOpen) closePlan();
 });
 
@@ -601,7 +634,7 @@ for (const button of $$('[data-landmark]')) {
   button.addEventListener('click', () => openLandmark(button.dataset.landmark, button));
 }
 $('#visit-close').addEventListener('click', () => closeLandmark(true));
-$('#exit-sim').addEventListener('click', () => setSimulation(false, true));
+$('#exit-sim').addEventListener('click', exitSimulation);
 
 function unitPlanLink(unit, label) {
   return '<a class="plan-link" target="_blank" rel="noopener" href="' + planDirectory + unit.plan + '">' + label + ' ↗</a>';
@@ -617,7 +650,7 @@ $('#unit-list').innerHTML = units.map(unit => `
     </button>
     <div class="unit-card-actions">
       <button type="button" data-open-unit-plan="${unit.id}" aria-label="Abrir planta da unidade ${unit.id}">Planta</button>
-      ${unit.id === '1108' ? '<button type="button" data-open-unit-view="1108">Vista simulada</button>' : ''}
+      ${unit.id === '1108' ? '<button type="button" data-open-interior aria-controls="interior-view">Interior 3D</button>' : ''}
     </div>
   </div>`).join('');
 unitSwitcher.innerHTML = '<span>Unidade</span>' + units.map(unit =>
@@ -631,6 +664,8 @@ for (const button of unitSwitcher.querySelectorAll('button')) {
 function selectUnit(id, { rotate = true, focus = false, panel = 'details' } = {}) {
   const unit = units.find(item => item.id === id);
   if (!unit) return;
+  leaveInterior();
+  revealUnits();
   if (!frontageView.hidden) hideFrontage();
   if (simulating) setSimulation(false);
   selectedUnit = unit;
@@ -669,7 +704,7 @@ function renderUnit() {
       <button type="button" class="text-button" id="copy-summary">Copiar resumo da unidade</button>
       <output id="summary-share-status" class="share-status" aria-live="polite"></output>
     </div>
-    ${id === '1108' ? '<button type="button" class="compare-button sim-start" id="start-sim">Explorar vista simulada <span aria-hidden="true">↗</span></button>' : ''}
+    ${id === '1108' ? '<button type="button" class="compare-button sim-start" data-open-interior aria-controls="interior-view">Explorar interior em 3D <span aria-hidden="true">↗</span></button><button type="button" class="text-button" id="start-sim">Vista simulada da varanda</button>' : ''}
     <div id="detail-plan-slot">
     <figure class="unit-plan" id="unit-plan">
       <figcaption><strong>Planta da unidade</strong><span>Esquemática · ${selectedUnit.wing}</span></figcaption>
@@ -734,12 +769,6 @@ function showUnitOnBuilding(id) {
 for (const button of $$('[data-open-unit-plan]')) {
   button.addEventListener('click', () => selectUnit(button.dataset.openUnitPlan, { focus: true, panel: 'plan' }));
 }
-const unitViewButton = $('[data-open-unit-view]');
-unitViewButton.disabled = !model;
-unitViewButton.addEventListener('click', () => {
-  selectUnit(unitViewButton.dataset.openUnitView);
-  setSimulation(true, true);
-});
 $('[data-unit-action="plan"]').addEventListener('click', () => openPanel('plan', { focus: true }));
 $('[data-unit-action="view"]').addEventListener('click', () => setSimulation(true, true));
 
@@ -750,6 +779,8 @@ function focusUnitInScene(unit, rotate) {
 }
 
 function setSimulation(enabled, focus = false) {
+  if (enabled && !interiorView.hidden) leaveInterior();
+  if (!enabled) roomBeforeSimulation = null;
   if (enabled && satelliteOnly) setSatelliteOnly(false);
   simulating = enabled;
   model?.simulate(enabled);
@@ -758,6 +789,7 @@ function setSimulation(enabled, focus = false) {
   lastSimulationYaw = undefined;
   canvas.setAttribute('aria-label', enabled ? 'Vista simulada da unidade 1108 voltada para a orla' : 'Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde');
   if (enabled) {
+    $('#exit-sim').textContent = roomBeforeSimulation ? 'Voltar ao interior' : 'Voltar ao edifício';
     closeLandmark();
     rotateToUnit.hidden = true;
     setSheetExpanded(false);
@@ -770,6 +802,85 @@ function setSimulation(enabled, focus = false) {
   }
   updateSummary();
 }
+
+function exitSimulation() {
+  const room = roomBeforeSimulation;
+  setSimulation(false, !room);
+  if (room) {
+    showInterior(room);
+    interiorBalcony.focus({ preventScroll: true });
+  }
+}
+
+function selectInteriorRoom(room) {
+  interior.show(room);
+  for (const button of roomButtons) button.setAttribute('aria-pressed', String(button.dataset.room === room));
+  const roomIndexes = { living: 0, suite: 1, balcony: 5 };
+  drawPlan($('#interior-plan'), '1108', { roomIndex: roomIndexes[room] });
+  interiorBalcony.disabled = room !== 'balcony';
+  interiorBalcony.hidden = !model;
+}
+
+function showInterior(room = 'overview') {
+  interiorView.hidden = false;
+  workspace.classList.add('interior-open');
+  setSheetExpanded(false);
+  selectInteriorRoom(room);
+  updateSummary();
+  $('.site-header').scrollIntoView({ block: 'start' });
+}
+
+function leaveInterior(restoreFocus = false) {
+  if (interiorTimer !== null) {
+    clearTimeout(interiorTimer);
+    interiorTimer = null;
+    model?.emphasizeFloor(false);
+  }
+  if (interiorView.hidden) return;
+  interior?.hide();
+  interiorView.hidden = true;
+  workspace.classList.remove('interior-open');
+  updateSummary();
+  if (restoreFocus) {
+    $('#scene-unit-interior').focus({ preventScroll: true });
+    $('.site-header').scrollIntoView({ block: 'start' });
+  }
+}
+
+document.addEventListener('click', event => {
+  const opener = event.target.closest('[data-open-interior]');
+  if (!opener) return;
+  interior ??= window.createInterior?.($('#interior-canvas'), planDrawings['1108']);
+  if (!interior) {
+    selectUnit('1108', { panel: 'plan', focus: true });
+    return;
+  }
+  selectUnit('1108');
+  setSheetExpanded(false);
+  $('.site-header').scrollIntoView({ block: 'start' });
+  if (!model || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    showInterior();
+    $('#close-interior').focus({ preventScroll: true });
+    return;
+  }
+  canvas.focus({ preventScroll: true });
+  model.emphasizeFloor(true);
+  interiorTimer = setTimeout(() => {
+    interiorTimer = null;
+    model.emphasizeFloor(false);
+    showInterior();
+    $('#close-interior').focus({ preventScroll: true });
+  }, 640);
+});
+$('#close-interior').addEventListener('click', () => leaveInterior(true));
+for (const button of roomButtons) button.addEventListener('click', () => {
+  selectInteriorRoom(button.dataset.room);
+  if (mediaSmall.matches) $('.site-header').scrollIntoView({ block: 'start' });
+});
+interiorBalcony.addEventListener('click', () => {
+  roomBeforeSimulation = 'balcony';
+  setSimulation(true, true);
+});
 
 function renderFavourite() {
   const saved = favourites.has(selectedUnit.id);
@@ -925,7 +1036,7 @@ function planCanvas(unit) {
     aria-label="Planta esquemática da unidade ${unit.id}. ${unit.orientation}. ${unit.layout} Entrada e direção da orla indicadas."></canvas>`;
 }
 
-function drawPlan(diagram, id, { simulationYaw } = {}) {
+function drawPlan(diagram, id, { simulationYaw, roomIndex } = {}) {
   const ctx = diagram.getContext('2d');
   if (!ctx) return;
   const plan = planDrawings[id];
@@ -939,9 +1050,9 @@ function drawPlan(diagram, id, { simulationYaw } = {}) {
     for (const point of points.slice(1)) ctx.lineTo(...point);
     if (closed) ctx.closePath();
   }
-  for (const room of plan.rooms) {
+  for (const [index, room] of plan.rooms.entries()) {
     trace(room.path, true);
-    ctx.fillStyle = room.fill;
+    ctx.fillStyle = index === roomIndex ? '#94c5a6' : room.fill;
     ctx.fill();
   }
   ctx.lineWidth = 2.3;
@@ -1025,6 +1136,117 @@ function drawPlan(diagram, id, { simulationYaw } = {}) {
 
 const zoomLevels = [100, 125, 150, 200];
 const planZooms = { unit: 0, large: 0, compare: 0 };
+
+function drawComparisonOverlay(canvas, mode) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const scale = canvas.width / 208;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.clearRect(0, 0, 208, 244);
+  ctx.fillStyle = '#f4f3e9';
+  ctx.fillRect(0, 0, 208, 244);
+  ctx.lineJoin = 'round';
+  const styles = [
+    ['1108', '#137264', '#27a58d30', []],
+    ['1103', '#a14826', '#d4773e28', [4, 2.5]]
+  ];
+  for (const [id, ink, wash, dash] of styles) {
+    if (mode !== 'both' && mode !== id) continue;
+    const { outline, entrance, rooms } = planDrawings[id];
+    const bounds = outline.map(([x]) => x);
+    const dx = 104 - (Math.min(...bounds) + Math.max(...bounds)) / 2;
+    const dy = 220 - Math.max(...outline.map(([, y]) => y));
+    function trace(points, close = false) {
+      ctx.beginPath();
+      points.forEach(([x, y], index) => {
+        if (index === 0) ctx.moveTo(x + dx, y + dy);
+        else ctx.lineTo(x + dx, y + dy);
+      });
+      if (close) ctx.closePath();
+    }
+    ctx.save();
+    ctx.translate(0, 8);
+    trace(outline, true);
+    ctx.fillStyle = wash;
+    ctx.fill();
+    ctx.strokeStyle = ink;
+    ctx.setLineDash(dash);
+    ctx.lineWidth = 2.1;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (mode !== 'both') {
+      ctx.lineWidth = .65;
+      for (const room of rooms) {
+        trace(room.path, true);
+        ctx.stroke();
+      }
+      ctx.font = '600 9px system-ui';
+      ctx.fillStyle = ink;
+      ctx.textAlign = 'center';
+      for (const [label, x, y] of planDrawings[id].labels) ctx.fillText(label, x + dx, y + dy + 3);
+    }
+    const { x, y, angle } = entrance;
+    ctx.translate(x + dx, y + dy);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(-2, 0);
+    ctx.lineTo(11, 0);
+    ctx.lineTo(7, -3);
+    ctx.moveTo(11, 0);
+    ctx.lineTo(7, 3);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.font = '700 8px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#425e50';
+  ctx.fillText('↓ ORLA', 104, 240);
+}
+
+for (const group of $$('[data-compare-mode]')) {
+  group.innerHTML = `
+    <button type="button" data-layout="side" aria-pressed="true">Lado a lado</button>
+    <button type="button" data-layout="both" aria-pressed="false">Sobrepor</button>
+    <div class="overlay-filters" hidden role="group" aria-label="Plantas visíveis na sobreposição">
+      <button type="button" data-outline="both" aria-pressed="true">Ambas</button>
+      <button type="button" data-outline="1103" aria-pressed="false">1103</button>
+      <button type="button" data-outline="1108" aria-pressed="false">1108</button>
+    </div>`;
+  const viewport = group.nextElementSibling;
+  const side = viewport.firstElementChild;
+  const overlay = document.createElement('figure');
+  overlay.className = 'comparison-overlay';
+  overlay.hidden = true;
+  overlay.innerHTML = `<canvas width="832" height="976" role="img" aria-label="Sobreposição das plantas, com os lados voltados para a orla alinhados"></canvas>
+    <figcaption><span class="outline-1103">1103 · Entrada lateral</span><span class="outline-1108">1108 · Entrada superior</span>
+    <small>Mesma escala aproximada. Alinhamento pelo lado da orla, com os centros na mesma linha.</small></figcaption>`;
+  viewport.append(overlay);
+  const canvas = overlay.querySelector('canvas');
+  const layouts = [...group.querySelectorAll('[data-layout]')];
+  const outlines = [...group.querySelectorAll('[data-outline]')];
+  let mode = 'both';
+  for (const button of layouts) button.addEventListener('click', () => {
+    const show = button.dataset.layout === 'both';
+    viewport.classList.toggle('overlay-open', show);
+    side.hidden = show;
+    overlay.hidden = !show;
+    group.querySelector('.overlay-filters').hidden = !show;
+    for (const option of layouts) option.setAttribute('aria-pressed', String(option === button));
+    if (show) {
+      drawComparisonOverlay(canvas, mode);
+      group.scrollIntoView({ block: 'nearest' });
+    }
+    viewport.scrollTo(0, 0);
+  });
+  for (const button of outlines) button.addEventListener('click', () => {
+    mode = button.dataset.outline;
+    for (const option of outlines) option.setAttribute('aria-pressed', String(option === button));
+    canvas.setAttribute('aria-label', mode === 'both' ? 'Sobreposição das plantas 1103 e 1108, com a orla para baixo'
+      : 'Contorno e ambientes da unidade ' + mode + ', com a orla para baixo');
+    drawComparisonOverlay(canvas, mode);
+  });
+}
 
 function updatePlanZoom(group) {
   const index = planZooms[group.dataset.planZoom];
@@ -1132,11 +1354,13 @@ function syncUrl() {
 }
 
 function restoreRoute(initial = false) {
+  leaveInterior();
   if (compareDialog.open) compareDialog.close();
   if (planDialog.open) planDialog.close();
   if (simulating) setSimulation(false);
   const params = new URLSearchParams(location.search);
   selectedUnit = units.find(unit => unit.id === params.get('unidade')) || null;
+  if (selectedUnit) revealUnits();
   renderUnit();
   const pair = params.get('comparar');
   if (pair?.split(',').sort().join(',') === comparisonIds) {
@@ -1152,7 +1376,7 @@ function restoreRoute(initial = false) {
     setSheetExpanded(!mediaSmall.matches);
     model?.showUnit(null);
     setView('model', { updateUrl: false });
-  }
+  } else updateSummary();
 }
 
 async function copyLink(url, status) {
