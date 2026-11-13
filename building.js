@@ -1,7 +1,9 @@
 (() => {
-  const initialView = { yaw: -.73, pitch: .29, zoom: 1 };
-  const minZoom = 0.75;
-  const maxZoom = 1.65;
+  const initialView = { yaw: -.18, pitch: .66, zoom: .72 };
+  const minZoom = .095;
+  const maxZoom = 1.45;
+  const fieldOfView = 36;
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
   function buildScene() {
@@ -111,7 +113,7 @@
     return inside;
   }
 
-  function createBuilding(canvas, { availableFloors, onSelect, onHover, onViewChange }) {
+  function createBuilding(canvas, { availableFloors, ground, onSelect, onHover, onViewChange, onPosition }) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     const surfaces = buildScene();
@@ -122,27 +124,77 @@
     let projectedFaces = [];
     let selected = null;
     let hovered = null;
+    let flight = null;
 
-    function draw() {
+    function draw(now) {
       frame = 0;
       if (!width || !height) return;
+      if (flight) {
+        const progress = Math.min(1, (now - flight.start) / 560);
+        const eased = progress * progress * (3 - 2 * progress);
+        for (const key of ['yaw', 'pitch', 'zoom']) {
+          camera[key] = flight.from[key] + (flight.to[key] - flight.from[key]) * eased;
+        }
+        if (progress === 1) {
+          flight = null;
+          reportZoom();
+        } else {
+          redraw();
+        }
+      }
+
       ctx.clearRect(0, 0, width, height);
       const sinYaw = Math.sin(camera.yaw), cosYaw = Math.cos(camera.yaw);
       const sinPitch = Math.sin(camera.pitch), cosPitch = Math.cos(camera.pitch);
-      const scale = Math.max(5, Math.min((width - 40) / 12.3, (height - 103) / 16.5)) * camera.zoom;
+      const scale = Math.max(5, Math.min((width - 32) / 12.3, (height - 95) / 16.5));
+      const distance = fieldOfView / camera.zoom;
+      const target = clamp((camera.zoom - .13) * 8, .5, 5.4);
+      const centreX = width * .50;
+      const centreY = height * (.49 - .13 * camera.zoom);
 
-      function project([x, y, z]) {
+      function homogeneous(x, y, z) {
         const ahead = x * sinYaw + z * cosYaw;
-        const vertical = y - 7.1;
+        const vertical = y * .69 - target;
         const depth = ahead * cosPitch + vertical * sinPitch;
-        const perspective = 36 / (36 - depth);
+        const w = (distance - depth) / fieldOfView;
         return {
-          x: width * .49 + (x * cosYaw - z * sinYaw) * scale * perspective,
-          y: height * .475 - (vertical * cosPitch - ahead * sinPitch) * scale * perspective,
+          x: centreX * w + (x * cosYaw - z * sinYaw) * scale,
+          y: centreY * w - (vertical * cosPitch - ahead * sinPitch) * scale,
+          w,
           depth
         };
       }
 
+      function project([x, y, z]) {
+        const point = homogeneous(x, y, z);
+        return { x: point.x / point.w, y: point.y / point.w, depth: point.depth };
+      }
+
+      if (ground) {
+        // The image is a north-up Web Mercator crop. Its CSS transform uses the
+        // same homogeneous projection as the tower, including perspective.
+        const { element, size, metresPerPixel, originX, originZ, metresPerUnit } = ground;
+        const unitPerPixel = metresPerPixel / metresPerUnit;
+        const x = originX / metresPerUnit - size * unitPerPixel / 2;
+        const z = originZ / metresPerUnit - size * unitPerPixel / 2;
+        const origin = homogeneous(x, -.24, z);
+        const right = homogeneous(x + unitPerPixel, -.24, z);
+        const down = homogeneous(x, -.24, z + unitPerPixel);
+        const matrix = [
+          right.x - origin.x, right.y - origin.y, 0, right.w - origin.w,
+          down.x - origin.x, down.y - origin.y, 0, down.w - origin.w,
+          0, 0, 1, 0,
+          origin.x, origin.y, 0, origin.w
+        ];
+        element.style.transform = 'matrix3d(' + matrix.join(',') + ')';
+      }
+
+      onPosition({
+        tower: project([0, 15.9, 0]),
+        beach: project([18, -.24, 31]),
+        width,
+        height
+      });
       const shadow = project([0, -.28, 0]);
       ctx.save();
       ctx.translate(shadow.x, shadow.y + 3);
@@ -225,18 +277,36 @@
       onHover(floor, x, y);
     }
 
-    function changeView(action) {
-      switch (action) {
-        case 'left': camera.yaw -= Math.PI / 6; break;
-        case 'right': camera.yaw += Math.PI / 6; break;
-        case 'up': camera.pitch = clamp(camera.pitch + .10, .13, .70); break;
-        case 'down': camera.pitch = clamp(camera.pitch - .10, .13, .70); break;
-        case 'in': camera.zoom = clamp(camera.zoom * 1.18, minZoom, maxZoom); break;
-        case 'out': camera.zoom = clamp(camera.zoom / 1.18, minZoom, maxZoom); break;
-        case 'rear': Object.assign(camera, initialView, { yaw: -2.4, pitch: .46 }); break;
-        case 'reset': Object.assign(camera, initialView); break;
-      }
+    function reportZoom() {
       onViewChange(camera.zoom <= minZoom, camera.zoom >= maxZoom);
+    }
+
+    function moveTo(view) {
+      if (reduceMotion.matches) {
+        Object.assign(camera, view);
+        reportZoom();
+      } else {
+        flight = { from: { ...camera }, to: view, start: performance.now() };
+      }
+      setHover(null);
+      redraw();
+    }
+
+    function changeView(action) {
+      flight = null;
+      switch (action) {
+        case 'left': camera.yaw -= Math.PI / 8; break;
+        case 'right': camera.yaw += Math.PI / 8; break;
+        case 'up': camera.pitch = clamp(camera.pitch + .10, .37, 1.30); break;
+        case 'down': camera.pitch = clamp(camera.pitch - .10, .37, 1.30); break;
+        case 'in': camera.zoom = clamp(camera.zoom * 1.24, minZoom, maxZoom); break;
+        case 'out': camera.zoom = clamp(camera.zoom / 1.24, minZoom, maxZoom); break;
+        case 'aerial': moveTo({ yaw: camera.yaw, pitch: 1.12, zoom: .14 }); return;
+        case 'model': moveTo({ ...initialView, yaw: camera.yaw }); return;
+        case 'rear': moveTo({ yaw: -2.65, pitch: .70, zoom: .83 }); return;
+        case 'reset': moveTo(initialView); return;
+      }
+      reportZoom();
       setHover(null);
       redraw();
     }
@@ -252,6 +322,7 @@
 
     canvas.addEventListener('pointerdown', event => {
       if (event.button !== 0 || pointers.size >= 2) return;
+      flight = null;
       const position = coordinates(event);
       if (!pointers.size) {
         start = position;
@@ -276,12 +347,12 @@
         const other = [...pointers.entries()].find(([id]) => id !== event.pointerId)[1];
         const previousGap = distance(previous, other);
         if (previousGap > 1) camera.zoom = clamp(camera.zoom * distance(current, other) / previousGap, minZoom, maxZoom);
-        onViewChange(camera.zoom <= minZoom, camera.zoom >= maxZoom);
+        reportZoom();
       } else {
         if (!dragged && distance(current, start) < 5) return;
         dragged = true;
         camera.yaw -= (current.x - previous.x) * .010;
-        camera.pitch = clamp(camera.pitch + (current.y - previous.y) * .005, .13, .70);
+        camera.pitch = clamp(camera.pitch + (current.y - previous.y) * .005, .37, 1.30);
       }
       canvas.classList.add('dragging');
       redraw();

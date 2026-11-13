@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=five-2">
-  <script src="building.js?v=five-2" defer></script>
-  <script src="app.js?v=five-2" defer></script>
+  <link rel="stylesheet" href="style.css?v=five-3">
+  <script src="building.js?v=five-3" defer></script>
+  <script src="app.js?v=five-3" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -35,23 +35,27 @@
           <div class="view-switch" role="group" aria-label="Modo de visualização">
             <button type="button" data-view="model" aria-pressed="true" aria-controls="model-stage">Edifício 3D</button>
             <button type="button" data-view="plan" aria-pressed="false" aria-controls="plan-stage">Planta</button>
-            <button type="button" data-view="aerial" aria-pressed="false" aria-controls="aerial-stage">Entorno</button>
+            <button type="button" data-view="aerial" aria-pressed="false" aria-controls="model-stage">Entorno</button>
           </div>
           <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=Edif%C3%ADcio%20Five%20Flex%20Life%2C%20Avenida%20Silvio%20Carlos%20Viana%201811%2C%20Macei%C3%B3" target="_blank" rel="noopener">Mapa <span aria-hidden="true">↗</span></a>
         </div>
 
         <div id="model-stage" class="model-stage">
-          <canvas id="building-canvas" tabindex="0" aria-label="Maquete do Five Flex Life" aria-describedby="model-instructions"></canvas>
-          <p id="model-instructions" class="sr-only">Arraste para girar. No teclado, use as setas para girar e mais ou menos para aproximar ou afastar. O botão 11º pavimento abre a planta.</p>
+          <img id="satellite-ground" class="satellite-ground" src="aerial/ponta-verde-cbers.jpg" width="1152" height="1152" alt="">
+          <canvas id="building-canvas" tabindex="0" aria-label="Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde" aria-describedby="model-instructions"></canvas>
+          <button type="button" class="site-pin" id="site-pin" aria-label="Aproximar de Five Flex Life" hidden><span>Five Flex Life</span></button>
+          <p id="model-instructions" class="sr-only">Arraste para girar. No teclado, use as setas para girar e mais ou menos para aproximar ou afastar. Entorno amplia a vista da orla e o botão Five Flex Life aproxima o edifício. O botão 11º pavimento abre a planta.</p>
           <p class="model-fallback" id="model-fallback" hidden>Maquete indisponível. Use o botão do 11º pavimento para abrir a planta.</p>
+          <span class="scene-landmark" id="beach-label" hidden>Praia de Ponta Verde</span>
           <div class="model-meta">
-            <span class="model-label">Maquete esquemática</span>
+            <span class="model-label" id="scene-label">Maquete sobre imagem de satélite</span>
             <button type="button" class="angle-button" id="angle-button" data-camera="rear">Ver ala posterior <span aria-hidden="true">↻</span></button>
           </div>
           <button type="button" class="floor-chip" data-view="plan"><b>11º</b> <span>Pavimento</span> <span aria-hidden="true">↗</span></button>
           <output id="floor-tooltip" class="floor-tooltip" aria-hidden="true" hidden></output>
+          <a class="scene-credit" href="#fontes">Imagem © INPE · 02/10/2026</a>
           <div class="model-bottom">
-            <p id="floor-status" class="floor-status" aria-live="polite">Arraste para girar · Selecione o 11º pavimento</p>
+            <p id="floor-status" class="floor-status" aria-live="polite">Arraste para girar · Clique no 11º pavimento</p>
             <div id="model-controls" class="model-controls" role="group" aria-label="Controles da maquete">
               <button type="button" data-camera="left" aria-label="Girar à esquerda" title="Girar à esquerda">↶</button>
               <button type="button" data-camera="right" aria-label="Girar à direita" title="Girar à direita">↷</button>
@@ -99,21 +103,6 @@
           </div>
         </div>
 
-        <div id="aerial-stage" class="aerial-stage" hidden>
-          <figure class="aerial-figure">
-            <img id="aerial-photo" alt="">
-            <div class="aerial-fallback" id="aerial-fallback" hidden>Foto indisponível. <a id="aerial-fallback-link" href="#fontes" target="_blank" rel="noopener">Abrir imagem na fonte ↗</a></div>
-            <figcaption id="aerial-caption">
-              <span id="aerial-title"></span>
-              <span><a id="aerial-source" target="_blank" rel="noopener"></a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> · JPEG otimizado</span>
-            </figcaption>
-          </figure>
-          <div class="aerial-toolbar">
-            <div id="aerial-options" class="aerial-options" role="group" aria-label="Fotos do entorno"></div>
-            <a href="https://www.youtube.com/watch?v=v5W3nDjcgIw" target="_blank" rel="noopener">Sobrevoo de 2026 ↗</a>
-          </div>
-          <p class="aerial-note">Registros do bairro e da orla, feitos entre 2016 e 2021.</p>
-        </div>
       </section>
 
       <aside class="residences" aria-labelledby="units-title">
@@ -126,10 +115,32 @@
       </aside>
     </div>
 
+    <details id="aerial-gallery" class="aerial-gallery">
+      <summary>Fotos e sobrevoo de Ponta Verde</summary>
+      <div class="aerial-stage">
+        <figure class="aerial-figure">
+          <img id="aerial-photo" alt="">
+          <div class="aerial-fallback" id="aerial-fallback" hidden>Foto indisponível. <a id="aerial-fallback-link" href="#fontes" target="_blank" rel="noopener">Abrir imagem na fonte ↗</a></div>
+          <figcaption id="aerial-caption">
+            <span id="aerial-title"></span>
+            <span><a id="aerial-source" target="_blank" rel="noopener"></a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> · JPEG otimizado</span>
+          </figcaption>
+        </figure>
+        <div class="aerial-toolbar">
+          <div id="aerial-options" class="aerial-options" role="group" aria-label="Fotos do entorno"></div>
+          <a href="https://www.youtube.com/watch?v=v5W3nDjcgIw" target="_blank" rel="noopener">Sobrevoo de 2026 ↗</a>
+        </div>
+        <p class="aerial-note">Registros do bairro e da orla, feitos entre 2016 e 2021.</p>
+      </div>
+    </details>
+
     <footer class="sources" id="fontes">
       <h2>Fontes e créditos</h2>
       <p>Planta de navegação e maquete produzidas para esta demonstração. Dados das unidades consultados na tabela de 02/07/2026. Preços e disponibilidade podem ter mudado.</p>
+      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), recortada e reprojetada. Entorno em fotografia de satélite. Maquete com posição, escala e geometria aproximadas.</p>
       <ul>
+        <li><a href="https://data.inpe.br/bdc/stac/v1/collections/CB4A-WPM-PCA-FUSED-1/items/CBERS4A_WPM_PCA_RGB321_20261002_192_125" target="_blank" rel="noopener">Imagem de satélite · INPE ↗</a></li>
+        <li><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">Licença da imagem · CC BY 4.0 ↗</a></li>
         <li><a href="https://coutinhoincorporacoes.com.br/empreendimentos/eef93708-9dc0-45ea-bf3e-68d5dec86f73" target="_blank" rel="noopener">Coutinho Incorporações ↗</a></li>
         <li><a href="https://www.hiltonimoveis.com.br/empreendimentos/five-ponta-verde" target="_blank" rel="noopener">Hilton Imóveis ↗</a></li>
         <li><a href="https://maceio.al.gov.br/noticias/semtur/ponta-verde-e-eleita-uma-das-melhores-praias-da-america-do-sul" target="_blank" rel="noopener">Foto aérea da Prefeitura de Maceió ↗</a></li>

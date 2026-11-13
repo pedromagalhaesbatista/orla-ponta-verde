@@ -46,11 +46,39 @@ let selectedPhoto = null;
 
 const canvas = $('#building-canvas');
 const tooltip = $('#floor-tooltip');
+const pin = $('#site-pin');
+const beachLabel = $('#beach-label');
+const groundImage = $('#satellite-ground');
+const sceneLabel = $('#scene-label');
+const aerialGallery = $('#aerial-gallery');
+let activeView = 'model';
 const model = window.createBuilding(canvas, {
   availableFloors: new Set(['11']),
+  ground: {
+    element: groundImage,
+    size: 1152,
+    metresPerPixel: 2350 / 1152,
+    metresPerUnit: 4.8,
+    // Shift from the mapped frontage pin towards the building footprint.
+    originX: -5,
+    originZ: 24
+  },
+  onPosition({ tower, beach, width, height }) {
+    pin.hidden = activeView !== 'aerial';
+    beachLabel.hidden = pin.hidden || beach.x < 75 || beach.x > width - 75
+      || beach.y < 70 || beach.y > height - 110
+      || Math.hypot(beach.x - tower.x, beach.y - tower.y) < 86;
+    if (!beachLabel.hidden) {
+      beachLabel.style.left = beach.x + 'px';
+      beachLabel.style.top = beach.y + 'px';
+    }
+    if (pin.hidden) return;
+    pin.style.left = Math.max(72, Math.min(width - 72, tower.x)) + 'px';
+    pin.style.top = Math.max(96, tower.y) + 'px';
+  },
   onSelect(floor) {
     if (floor === '11') {
-      setView('plan', true);
+      setView('plan', { focusTab: true });
       return;
     }
     model.select(floor);
@@ -69,25 +97,42 @@ const model = window.createBuilding(canvas, {
   }
 });
 $('#model-fallback').hidden = Boolean(model);
+groundImage.hidden = !model;
+function reportUnavailableImagery() {
+  groundImage.hidden = true;
+  sceneLabel.textContent = 'Imagem de satélite indisponível';
+}
+groundImage.addEventListener('error', reportUnavailableImagery);
+if (groundImage.complete && !groundImage.naturalWidth) reportUnavailableImagery();
 $('#model-controls').hidden = !model;
 $('#angle-button').hidden = !model;
 model?.select('11');
 
-function setView(view, fromModel = false) {
-  for (const name of ['model', 'plan', 'aerial']) {
-    $('#' + name + '-stage').hidden = name !== view;
-  }
+function setView(view, { focusTab = false, cameraAction } = {}) {
+  const previousView = activeView;
+  activeView = view;
+  $('#model-stage').hidden = view === 'plan';
+  $('#plan-stage').hidden = view !== 'plan';
   for (const button of $$('.view-switch [data-view]')) {
     button.setAttribute('aria-pressed', String(button.dataset.view === view));
   }
   tooltip.hidden = true;
-  if (view === 'model') {
+  if (view !== 'plan') {
     model?.select('11');
-    $('#floor-status').textContent = 'Arraste para girar · Selecione o 11º pavimento';
+    if (cameraAction || previousView !== view) model?.changeView(cameraAction || view);
+    $('#floor-status').textContent = view === 'aerial'
+      ? 'Arraste para girar · Clique no marcador para aproximar'
+      : 'Arraste para girar · Clique no 11º pavimento';
   }
-  if (view === 'aerial' && selectedPhoto === null) showPhotograph(0);
-  if (fromModel) $('.view-switch [data-view="plan"]').focus({ preventScroll: true });
+  if (focusTab) $('.view-switch [data-view="' + view + '"]').focus({ preventScroll: true });
 }
+
+pin.addEventListener('click', () => {
+  setView('model', { focusTab: true });
+});
+aerialGallery.addEventListener('toggle', () => {
+  if (aerialGallery.open && selectedPhoto === null) showPhotograph(0);
+});
 
 function unitPlanLink(unit, label) {
   return '<a class="plan-link" target="_blank" rel="noopener" href="' + planDirectory + unit.plan + '">' + label + ' ↗</a>';
@@ -184,7 +229,7 @@ $('#compare-content').innerHTML = `
   </table>`;
 
 for (const button of $$('[data-view]')) {
-  button.addEventListener('click', () => setView(button.dataset.view, button.classList.contains('floor-chip')));
+  button.addEventListener('click', () => setView(button.dataset.view, { focusTab: button.classList.contains('floor-chip') }));
 }
 for (const button of $$('[data-unit]')) {
   button.addEventListener('click', () => selectUnit(button.dataset.unit, button.classList.contains('plan-unit')));
@@ -192,8 +237,11 @@ for (const button of $$('[data-unit]')) {
 for (const button of $$('[data-camera]')) {
   button.addEventListener('click', () => {
     const action = button.dataset.camera;
-    model?.changeView(action);
-    if (action !== 'rear' && action !== 'reset') return;
+    if (action !== 'rear' && action !== 'reset') {
+      model?.changeView(action);
+      return;
+    }
+    setView('model', { cameraAction: action });
     const angleButton = $('#angle-button');
     angleButton.dataset.camera = action === 'rear' ? 'reset' : 'rear';
     angleButton.firstChild.textContent = action === 'rear' ? 'Ver fachada da orla ' : 'Ver ala posterior ';
