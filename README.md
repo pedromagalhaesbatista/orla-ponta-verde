@@ -10,4 +10,14 @@ Os detalhes mostram a planta esquemática ampliável, com entrada e orientação
 
 Os parâmetros `?unidade=1103` e `?unidade=1108` abrem os detalhes de cada unidade. `?comparar=1103,1108` abre a comparação. A aba **Detalhes** da unidade 1108 oferece uma vista simulada para a orla e uma planta que indica o rumo da câmera na varanda. O painel também inclui um sobrevoo real, com referência ao Farol, à Rua Fechada e ao Marco dos Corais.
 
+O seletor de unidades mantém a aba ativa. O parâmetro `painel=planta`, junto de `unidade`, abre a planta da unidade diretamente. **Comparar** mostra área, preço de 02/07/2026, preço dividido pela área privativa, varanda e orientação. **Detalhes** inclui o link para a tabela publicada e um resumo copiável com link para a unidade.
+
+Em **Entorno**, a entrada indica o endereço público de nº 1811 (nó OSM 3012289868), o calçadão usa o nó OSM 4095553149 e a referência para a areia usa o ponto do Lopana (nó OSM 3269632970). As localizações são referências para visita. A galeria inclui a foto da Praia de Ponta Verde de André Lage Freitas, de 2016, sob CC BY-SA 4.0, redimensionada para 1.600 px.
+
 Para executar localmente, rode `python3 -m http.server 8000 --directory dist` e abra http://localhost:8000. Mantenha `dist` e `docs` sincronizados. O repositório público `pedromagalhaesbatista/orla-ponta-verde` publica a versão estática pela raiz da branch `main`.
+
+## Captação de imagens
+
+- **Sobrevoo do Five Flex Life.** Gravar em 4K durante o dia, com planos abertos que mostrem edifício, quadra, avenida e praia no mesmo enquadramento. Incluir tomadas oblíquas da orla e da ala posterior e um plano da fachada que ajude a localizar o acesso. Registrar data, posição aproximada e direção de cada tomada.
+- **Varanda da 1108.** Com autorização de acesso à unidade, fotografar um panorama a partir da própria varanda, à altura dos olhos. Registrar o ponto no croqui, o rumo inicial e a data. Entregar a imagem original e uma versão optimizada para o site. Se a varanda estiver inacessível, identificar o ponto real de qualquer captação alternativa.
+- **Entrega e publicação.** Solicitar ficheiros originais, crédito acordado e licença escrita para publicação e edição no site público. Confirmar com a produtora os requisitos de voo aplicáveis ao local e as autorizações necessárias. [Orientação de voo do DECEA](https://www.decea.mil.br/drone/).

@@ -206,7 +206,7 @@
     return inside;
   }
 
-  function createBuilding(canvas, { availableFloors, ground, onSelect, onHover, onViewChange, onPosition }) {
+  function createBuilding(canvas, { availableFloors, ground, visitPoints, onSelect, onHover, onViewChange, onPosition }) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     const tower = buildScene();
@@ -330,6 +330,7 @@
         beach: project([25, -.24, 24]),
         avenue: project([-17, -.24, 13]),
         entrance: project([-2.24, .1, 2.61]),
+        visit: Object.fromEntries(Object.entries(visitPoints).map(([id, point]) => [id, project(point)])),
         heading: (simulation ? Math.PI - yaw : -yaw) * 180 / Math.PI,
         preset,
         simulationYaw: simulation?.yaw,

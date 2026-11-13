@@ -1,19 +1,43 @@
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const planDirectory = 'https://www.hiltonimoveis.com.br/developments/five-ponta-verde/plans/';
+const listingUrl = 'https://www.hiltonimoveis.com.br/empreendimentos/five-ponta-verde#unidades';
+const listingDate = '02/07/2026';
 const units = [
   {
     id: '1103', wing: 'Ala posterior', area: 45.9, price: 1279070, plan: 'planta-terminacao-03.webp',
     layout: 'Planta mais estreita, com um recorte diagonal entre a sala e a suíte.',
-    orientation: 'Ala posterior · orla para baixo'
+    orientation: 'Ala posterior · orla para baixo', balcony: 'Não indicada na planta'
   },
   {
     id: '1108', wing: 'Ala da orla', area: 57.5, price: 1250943, plan: 'planta-terminacoes-07-19.webp',
     layout: 'Planta mais larga, com sala e suíte lado a lado e varanda junto à sala.',
-    orientation: 'Ala da orla · orla para baixo'
+    orientation: 'Ala da orla · orla para baixo', balcony: 'Voltada para a orla'
   }
 ];
+const landmarks = {
+  entrance: {
+    title: 'Entrada do Five', point: [.722, -.22, 4.395], location: '-9.6632308,-35.7046726',
+    text: 'Av. Sílvio Carlos Viana, 1811. Marcador no endereço do prédio. Confirme com a imobiliária o acesso residencial para a visita.'
+  },
+  promenade: {
+    title: 'Calçadão da orla', point: [7.517, -.22, 13.749], location: '-9.6636284,-35.7043796',
+    text: 'Trecho do passeio à beira-mar na Av. Sílvio Carlos Viana.'
+  },
+  beach: {
+    title: 'Praia de Ponta Verde', point: [17.526, -.22, 18.367], location: '-9.6638247,-35.7039480',
+    text: 'Referência para chegar à faixa de areia na altura do Lopana, na Av. Sílvio Carlos Viana, 27.'
+  }
+};
 const photographs = [
+  {
+    file: 'praia-ponta-verde.jpg',
+    option: 'Praia',
+    title: 'Praia de Ponta Verde · 2016',
+    alt: 'Faixa de areia de Ponta Verde com coqueiros, prédios à beira-mar e banhistas.',
+    author: 'André Lage Freitas',
+    source: 'Recreation_at_Ponta_Verde_beach_landscape_-_Macei%C3%B3%2C_Brazil.jpg'
+  },
   {
     file: 'ponta-verde-drone.jpg',
     option: 'Ponta Verde',
@@ -43,6 +67,7 @@ const storageKey = 'orla-five-flex-life-favourites';
 const areaFormat = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const priceFormat = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const formatArea = value => areaFormat.format(value) + ' m²';
+const pricePerMetre = unit => priceFormat.format(unit.price / unit.area) + '/m²';
 const mediaSmall = matchMedia('(max-width: 800px)');
 let favourites = new Set();
 try {
@@ -73,6 +98,13 @@ const planDialog = $('#plan-dialog');
 const compass = $('#compass');
 const cameraHeading = $('#camera-heading');
 const scenePresets = $$('[data-preset]');
+const visitBar = $('#visit-bar');
+const visitMarkers = $('#visit-markers');
+const visitCard = $('#visit-card');
+const returnUnit = $('#return-unit');
+const unitSwitcher = $('#unit-switcher');
+let selectedLandmark = null;
+let lastLandmarkControl = null;
 let activePanel = 'plan';
 let panelOpen = false;
 let simulating = false;
@@ -85,6 +117,7 @@ const aerialGallery = $('#aerial-gallery');
 let activeView = 'model';
 const model = window.createBuilding(canvas, {
   availableFloors: new Set(['11']),
+  visitPoints: Object.fromEntries(Object.entries(landmarks).map(([id, landmark]) => [id, landmark.point])),
   ground: {
     element: groundImage,
     size: 1152,
@@ -94,7 +127,7 @@ const model = window.createBuilding(canvas, {
     originX: -5,
     originZ: 24
   },
-  onPosition({ footprint, floor, units: points, beach, avenue, entrance, width, height, heading, preset, simulationYaw }) {
+  onPosition({ footprint, floor, units: points, beach, avenue, entrance, visit, width, height, heading, preset, simulationYaw }) {
     const aerial = activeView === 'aerial';
     pin.hidden = !aerial || simulating;
     if (!pin.hidden) {
@@ -142,10 +175,24 @@ const model = window.createBuilding(canvas, {
       place(button, point, 27, width - 27, 46, height - 20, 0, raised ? -45 : -5);
       placedPins.push(point);
     }
-    rotateToUnit.hidden = !selectedUnit || (!aerial && Boolean(points[selectedUnit.id])) || simulating;
+    rotateToUnit.hidden = aerial || !selectedUnit || Boolean(points[selectedUnit.id]) || simulating;
+
+    // Leave the projected pins in geographic order and stagger nearby labels.
+    const markerOffsets = { entrance: [-90, 14], promenade: [-41, 30], beach: [49, 42] };
+    for (const button of visitMarkers.children) {
+      const point = visit[button.dataset.landmark];
+      button.hidden = !aerial || simulating || point.w <= 0 || point.x < 0 || point.x > width || point.y < 0 || point.y > height;
+      if (!button.hidden) {
+        place(button, point, 53, width - 53, 64, height - 18, ...markerOffsets[button.dataset.landmark]);
+        const dx = point.x - parseFloat(button.style.left);
+        const dy = point.y - parseFloat(button.style.top);
+        button.style.setProperty('--point-line-length', Math.hypot(dx, dy) + 'px');
+        button.style.setProperty('--point-line-angle', Math.atan2(dx, dy) + 'rad');
+      }
+    }
 
     for (const [label, point] of [[beachLabel, beach], [avenueLabel, avenue]]) {
-      label.hidden = simulating || point.w <= 0 || point.x < 65 || point.x > width - 65 || point.y < 80 || point.y > height - 14
+      label.hidden = aerial || simulating || point.w <= 0 || point.x < 65 || point.x > width - 65 || point.y < 80 || point.y > height - 14
         || Math.hypot(point.x - footprint.x, point.y - footprint.y) < 56
         || Math.hypot(point.x - floor.x, point.y - floor.y) < 49;
       if (!label.hidden) place(label, point, 0, width, 0, height);
@@ -210,6 +257,7 @@ function place(element, point, minX, maxX, minY, maxY, offsetX = 0, offsetY = 0)
 function setView(view, { cameraAction, updateUrl = true } = {}) {
   if (simulating) setSimulation(false);
   activeView = view;
+  if (view !== 'aerial') closeLandmark();
   workspace.classList.toggle('aerial-open', view === 'aerial');
   model?.showFootprint(view === 'aerial');
   for (const button of $$('.view-switch [data-view]')) {
@@ -226,11 +274,19 @@ function renderPanel() {
   workspace.classList.toggle('plan-open', panelOpen);
   sheetHeader.hidden = !panelOpen;
   $('#unit-tabs').hidden = !panelOpen;
+  unitSwitcher.hidden = !panelOpen;
   $('#units-title').classList.toggle('sr-only', panelOpen);
   $('.units-intro').hidden = panelOpen;
   $('#unit-list').hidden = panelOpen;
   $('#compare-open').hidden = panelOpen;
   for (const name of Object.keys(panels)) panels[name].hidden = !panelOpen || name !== activePanel;
+  const unitPlan = $('#unit-plan');
+  const planSlot = $('#panel-unit-plan');
+  planSlot.hidden = !selectedUnit;
+  if (unitPlan) {
+    const destination = panelOpen && activePanel === 'plan' ? planSlot : $('#detail-plan-slot');
+    if (unitPlan.parentElement !== destination) destination.append(unitPlan);
+  }
   for (const button of panelTabs) {
     const active = button.dataset.panel === activePanel;
     button.setAttribute('aria-selected', String(active));
@@ -259,9 +315,35 @@ function updateSummary() {
   const unit = selectedUnit;
   $('#sheet-selection').textContent = unit ? 'Unidade ' + unit.id + ' · ' + formatArea(unit.area) : '11º pavimento';
   $('#floor-status').textContent = simulating ? 'Arraste para olhar ao redor'
-    : activeView === 'aerial' ? 'Arraste para girar · Clique no marcador para aproximar'
+    : activeView === 'aerial' ? 'Selecione um ponto para ver a localização'
     : unit ? 'Unidade ' + unit.id + ' · ' + unit.wing
     : 'Arraste para girar · Selecione uma unidade ou o 11º pavimento';
+  visitBar.hidden = activeView !== 'aerial' || simulating || !model;
+  visitMarkers.hidden = visitBar.hidden;
+  returnUnit.hidden = !unit;
+  returnUnit.textContent = unit ? 'Voltar à ' + unit.id : '';
+}
+
+function openLandmark(id, control) {
+  const { title, text, location } = landmarks[id];
+  selectedLandmark = id;
+  lastLandmarkControl = control;
+  $('#visit-title').textContent = title;
+  $('#visit-description').textContent = text;
+  $('#visit-map').href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(location);
+  $('#visit-photo').hidden = id !== 'beach';
+  for (const button of $$('[data-landmark]')) button.setAttribute('aria-pressed', String(button.dataset.landmark === id));
+  visitCard.hidden = false;
+  $('#visit-title').focus({ preventScroll: true });
+}
+
+function closeLandmark(restoreFocus = false) {
+  if (!selectedLandmark) return;
+  selectedLandmark = null;
+  visitCard.hidden = true;
+  for (const button of $$('[data-landmark]')) button.setAttribute('aria-pressed', 'false');
+  if (restoreFocus) (lastLandmarkControl.hidden ? visitBar.querySelector('[data-landmark="' + lastLandmarkControl.dataset.landmark + '"]') : lastLandmarkControl)?.focus({ preventScroll: true });
+  lastLandmarkControl = null;
 }
 
 function setSheetExpanded(expanded) {
@@ -289,7 +371,8 @@ floorChip.addEventListener('click', () => openPanel('plan', { focus: true }));
 $('#close-plan').addEventListener('click', closePlan);
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open]')) return;
-  if (simulating) setSimulation(false, true);
+  if (selectedLandmark) closeLandmark(true);
+  else if (simulating) setSimulation(false, true);
   else if (panelOpen) closePlan();
 });
 
@@ -320,6 +403,23 @@ rotateToUnit.addEventListener('click', () => {
   if (mediaSmall.matches) setSheetExpanded(false);
   canvas.focus({ preventScroll: true });
 });
+returnUnit.addEventListener('click', () => {
+  if (!selectedUnit) return;
+  focusUnitInScene(selectedUnit, true);
+  if (mediaSmall.matches) setSheetExpanded(false);
+  canvas.focus({ preventScroll: true });
+  if (mediaSmall.matches) $('.site-header').scrollIntoView({ block: 'start' });
+});
+for (const button of $$('[data-landmark]')) {
+  button.addEventListener('click', () => openLandmark(button.dataset.landmark, button));
+}
+$('#visit-close').addEventListener('click', () => closeLandmark(true));
+$('#visit-photo').addEventListener('click', () => {
+  aerialGallery.open = true;
+  showPhotograph(0);
+  aerialGallery.querySelector('summary').focus({ preventScroll: true });
+  aerialGallery.scrollIntoView({ block: 'start' });
+});
 $('#exit-sim').addEventListener('click', () => setSimulation(false, true));
 
 aerialGallery.addEventListener('toggle', () => {
@@ -336,25 +436,34 @@ $('#unit-list').innerHTML = units.map(unit => `
     <span class="unit-subtitle">${unit.wing}</span>
     <span class="unit-card-area">${formatArea(unit.area)}</span>
   </button>`).join('');
+unitSwitcher.innerHTML = '<span>Unidade</span>' + units.map(unit =>
+  '<button type="button" data-switch-unit="' + unit.id + '" aria-pressed="false">' + unit.id + '</button>').join('');
+for (const button of unitSwitcher.querySelectorAll('button')) {
+  button.addEventListener('click', () => {
+    if (selectedUnit?.id !== button.dataset.switchUnit) selectUnit(button.dataset.switchUnit, { panel: activePanel });
+  });
+}
 
-function selectUnit(id, { rotate = true, focus = false, updateUrl = true } = {}) {
+function selectUnit(id, { rotate = true, focus = false, panel = 'details' } = {}) {
   const unit = units.find(item => item.id === id);
   if (!unit) return;
   if (simulating) setSimulation(false);
   selectedUnit = unit;
   renderUnit();
-  openPanel('details', { focus, updateUrl: false });
+  openPanel(panel, { focus, updateUrl: false });
   focusUnitInScene(unit, rotate);
-  if (updateUrl) syncUrl();
+  syncUrl();
 }
 
 function renderUnit() {
   $('#tab-details').disabled = !selectedUnit;
-  for (const button of $$('[data-unit], [data-unit-pin]')) {
-    const id = button.dataset.unit || button.dataset.unitPin;
+  for (const button of $$('[data-unit], [data-unit-pin], [data-switch-unit]')) {
+    const id = button.dataset.unit || button.dataset.unitPin || button.dataset.switchUnit;
     button.setAttribute('aria-pressed', String(id === selectedUnit?.id));
   }
   const detail = $('#unit-detail');
+  $('#panel-unit-plan').replaceChildren();
+  $('#floor-layout').open = !selectedUnit;
   if (!selectedUnit) {
     detail.replaceChildren();
     return;
@@ -368,20 +477,29 @@ function renderUnit() {
     <dl>
       <div><dt>Área privativa</dt><dd>${formatArea(area)}</dd></div>
       <div><dt>Quartos</dt><dd>1 suíte</dd></div>
-      <div><dt>Preço anunciado em 02/07/2026</dt><dd>${priceFormat.format(price)}</dd></div>
+      <div><dt>Preço na tabela de ${listingDate}</dt><dd>${priceFormat.format(price)}</dd></div>
     </dl>
+    <div class="unit-decision-actions">
+      <a href="${listingUrl}" target="_blank" rel="noopener">Confirmar preço e disponibilidade ↗</a>
+      <button type="button" class="text-button" id="copy-summary">Copiar resumo da unidade</button>
+      <output id="summary-share-status" class="share-status" aria-live="polite"></output>
+    </div>
     ${id === '1108' ? '<button type="button" class="compare-button sim-start" id="start-sim">Explorar vista simulada <span aria-hidden="true">↗</span></button>' : ''}
-    <figure class="unit-plan">
+    <div id="detail-plan-slot">
+    <figure class="unit-plan" id="unit-plan">
       <figcaption><strong>Planta da unidade</strong><span>Esquemática · ${selectedUnit.wing}</span></figcaption>
       <div class="plan-viewport" tabindex="0" aria-label="Planta da unidade ${id}">
         <div class="plan-image">${planCanvas(selectedUnit)}</div>
       </div>
       <div class="plan-zoom" role="group" aria-label="Zoom da planta" data-plan-zoom="unit"></div>
       <p>${id === '1108' ? 'Entrada pelo corredor · Varanda voltada para a orla' : 'Entrada pelo corredor lateral · Orla indicada para orientação'}</p>
+      <div class="unit-detail-links">
+        <button type="button" class="text-button" id="expand-unit-plan">Abrir planta em tela ampla</button>
+        ${unitPlanLink(selectedUnit, 'Ver planta publicada')}
+      </div>
     </figure>
+    </div>
     <div class="unit-detail-links">
-      <button type="button" class="text-button" id="expand-unit-plan">Abrir planta em tela ampla</button>
-      ${unitPlanLink(selectedUnit, 'Ver planta publicada')}
       <button type="button" class="text-button" id="locate-unit">Ver no edifício ↑</button>
       <button type="button" class="text-button" id="copy-unit">Copiar link da unidade</button>
     </div>
@@ -395,6 +513,17 @@ function renderUnit() {
   $('#save-unit').addEventListener('click', toggleFavourite);
   $('#locate-unit').addEventListener('click', () => showUnitOnBuilding(id));
   $('#copy-unit').addEventListener('click', () => copyLink(unitLink(id), $('#panel-share-status')));
+  $('#copy-summary').addEventListener('click', () => {
+    const summary = [
+      'Five Flex Life · Unidade ' + id + ' · 11º pavimento',
+      formatArea(area) + ' privativos · 1 suíte · ' + selectedUnit.wing,
+      'Preço na tabela de ' + listingDate + ' (Hilton Imóveis) · ' + priceFormat.format(price),
+      pricePerMetre(selectedUnit) + ' com base na mesma tabela.',
+      'Confirme preço e disponibilidade com a imobiliária.',
+      unitLink(id).href
+    ].join('\n');
+    copyText(summary, $('#summary-share-status'), { label: 'Resumo para copiar', message: 'Resumo copiado.', multiline: true });
+  });
   $('#expand-unit-plan').addEventListener('click', () => {
     $('#large-plan-title').textContent = 'Planta · Unidade ' + id;
     $('#large-plan-image').innerHTML = planCanvas(selectedUnit);
@@ -430,6 +559,7 @@ function setSimulation(enabled, focus = false) {
   lastSimulationYaw = undefined;
   canvas.setAttribute('aria-label', enabled ? 'Vista simulada da unidade 1108 voltada para a orla' : 'Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde');
   if (enabled) {
+    closeLandmark();
     rotateToUnit.hidden = true;
     setSheetExpanded(false);
     if (mediaSmall.matches) $('.site-header').scrollIntoView({ block: 'start' });
@@ -483,14 +613,16 @@ $('#aerial-options').innerHTML = photographs.map((photo, index) => `
   <button type="button" data-photo="${index}" aria-pressed="false">${photo.option}</button>`).join('');
 
 const comparisonRows = [
-  ['Posição', unit => unit.wing],
   ['Área privativa', unit => formatArea(unit.area)],
-  ['Quartos', () => '1 suíte'],
-  ['Preço anunciado', unit => priceFormat.format(unit.price)]
+  ['Preço anunciado', unit => priceFormat.format(unit.price)],
+  ['Preço por m²', pricePerMetre],
+  ['Varanda', unit => unit.balcony],
+  ['Orientação', unit => unit.wing]
 ];
 const areaDifference = units[1].area - units[0].area;
+const priceDifference = units[0].price - units[1].price;
 const compareSummary = 'A unidade 1108 tem ' + formatArea(areaDifference)
-  + ' a mais de área privativa (' + new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 1 }).format(areaDifference / units[0].area) + ').';
+  + ' a mais e custava ' + priceFormat.format(priceDifference) + ' a menos na tabela de ' + listingDate + '.';
 $('#compare-summary').textContent = compareSummary;
 $('#compare-panel-summary').textContent = compareSummary;
 const comparisonCards = units.map(unit => `
@@ -683,13 +815,16 @@ function attachPlanZoom(group) {
 for (const diagram of $$('[data-plan-drawing]')) drawPlan(diagram, diagram.dataset.planDrawing);
 for (const group of $$('[data-plan-zoom]')) attachPlanZoom(group);
 
-$('#compare-content').innerHTML = `
+const comparisonTable = `
   <table class="compare-table">
     <thead><tr><th scope="col">Característica</th>${units.map(unit => '<th scope="col">' + unit.id + '</th>').join('')}</tr></thead>
     <tbody>${comparisonRows.map(([label, value]) => `
       <tr><th scope="row">${label}</th>${units.map(unit => '<td>' + value(unit) + '</td>').join('')}</tr>`).join('')}
     </tbody>
-  </table>`;
+  </table>
+  <p class="snapshot-note">Tabela Hilton Imóveis de ${listingDate} · <a href="${listingUrl}" target="_blank" rel="noopener">Confirmar preço e disponibilidade ↗</a></p>`;
+$('#compare-content').innerHTML = comparisonTable;
+$('#compare-panel-facts').innerHTML = comparisonTable;
 
 for (const button of $$('[data-view]')) {
   button.addEventListener('click', () => setView(button.dataset.view));
@@ -721,12 +856,14 @@ for (const button of $$('[data-show-building]')) {
 
 const comparisonIds = units.map(unit => unit.id).join(',');
 
-function stateLink({ unit, compare = false } = {}) {
+function stateLink({ unit, compare = false, plan = false } = {}) {
   const url = new URL(location.href);
   url.searchParams.delete('unidade');
   url.searchParams.delete('comparar');
+  url.searchParams.delete('painel');
   if (unit) url.searchParams.set('unidade', unit);
   if (compare) url.searchParams.set('comparar', comparisonIds);
+  if (unit && plan) url.searchParams.set('painel', 'planta');
   return url;
 }
 
@@ -745,7 +882,8 @@ function comparisonLink() {
 function syncUrl() {
   const url = stateLink({
     unit: selectedUnit?.id,
-    compare: panelOpen && activePanel === 'compare'
+    compare: panelOpen && activePanel === 'compare',
+    plan: panelOpen && activePanel === 'plan'
   });
   if (url.search !== location.search) history.pushState(null, '', url);
 }
@@ -764,7 +902,7 @@ function restoreRoute(initial = false) {
     openPanel('compare', { updateUrl: false });
   } else if (selectedUnit) {
     focusUnitInScene(selectedUnit, true);
-    openPanel('details', { updateUrl: false });
+    openPanel(params.get('painel') === 'planta' ? 'plan' : 'details', { updateUrl: false });
   } else if (!initial) {
     panelOpen = false;
     renderPanel();
@@ -775,16 +913,20 @@ function restoreRoute(initial = false) {
 }
 
 async function copyLink(url, status) {
+  return copyText(url.href, status, { label: 'Link para copiar', message: 'Link copiado.' });
+}
+
+async function copyText(value, status, { label, message, multiline = false }) {
   status.replaceChildren();
   try {
-    await navigator.clipboard.writeText(url.href);
-    status.textContent = 'Link copiado.';
+    await navigator.clipboard.writeText(value);
+    status.textContent = message;
   } catch {
-    const input = document.createElement('input');
-    input.type = 'url';
+    const input = document.createElement(multiline ? 'textarea' : 'input');
+    if (!multiline) input.type = 'url';
     input.readOnly = true;
-    input.value = url.href;
-    input.setAttribute('aria-label', 'Link para copiar');
+    input.value = value;
+    input.setAttribute('aria-label', label);
     status.append(input);
     input.focus({ preventScroll: true });
     input.select();

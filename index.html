@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=five-7">
-  <script src="building.js?v=five-7" defer></script>
-  <script src="app.js?v=five-7" defer></script>
+  <link rel="stylesheet" href="style.css?v=five-8">
+  <script src="building.js?v=five-8" defer></script>
+  <script src="app.js?v=five-8" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -48,6 +48,22 @@
           <p class="model-fallback" id="model-fallback" hidden>Maquete indisponível. Selecione Planta para explorar o 11º pavimento.</p>
           <span class="scene-landmark" id="beach-label" hidden>Praia de Ponta Verde</span>
           <span class="scene-landmark" id="avenue-label" hidden>Av. Sílvio Carlos Viana</span>
+          <div id="visit-markers" hidden>
+            <button type="button" class="scene-landmark visit-marker" data-landmark="entrance" aria-controls="visit-card" aria-pressed="false" hidden>Entrada</button>
+            <button type="button" class="scene-landmark visit-marker" data-landmark="promenade" aria-controls="visit-card" aria-pressed="false" hidden>Calçadão</button>
+            <button type="button" class="scene-landmark visit-marker" data-landmark="beach" aria-controls="visit-card" aria-pressed="false" hidden>Acesso à praia</button>
+          </div>
+          <section class="visit-card" id="visit-card" aria-labelledby="visit-title" hidden>
+            <div class="visit-card-header">
+              <h2 id="visit-title" tabindex="-1"></h2>
+              <button type="button" id="visit-close" aria-label="Fechar ponto do entorno">×</button>
+            </div>
+            <p id="visit-description"></p>
+            <div class="visit-actions">
+              <a id="visit-map" target="_blank" rel="noopener">Abrir no mapa ↗</a>
+              <button type="button" class="text-button" id="visit-photo" hidden>Ver foto da praia ↓</button>
+            </div>
+          </section>
           <button type="button" class="unit-pin" data-unit-pin="1103" aria-label="Selecionar unidade 1103 na fachada" aria-pressed="false" hidden>1103</button>
           <button type="button" class="unit-pin" data-unit-pin="1108" aria-label="Selecionar unidade 1108 na fachada" aria-pressed="false" hidden>1108</button>
           <div id="sim-view" class="sim-view" hidden>
@@ -75,6 +91,14 @@
           <button type="button" class="floor-chip" aria-controls="plan-stage" aria-expanded="false" aria-label="Abrir planta do 11º pavimento"><b>11º</b><span class="floor-chip-label">Pavimento</span><span aria-hidden="true">↗</span></button>
           <output id="floor-tooltip" class="floor-tooltip" aria-hidden="true" hidden></output>
         </div>
+        <div class="visit-bar" id="visit-bar" hidden>
+          <div role="group" aria-label="Pontos do entorno">
+            <button type="button" data-landmark="entrance" aria-controls="visit-card" aria-pressed="false">Entrada</button>
+            <button type="button" data-landmark="promenade" aria-controls="visit-card" aria-pressed="false">Calçadão</button>
+            <button type="button" data-landmark="beach" aria-controls="visit-card" aria-pressed="false">Acesso à praia</button>
+          </div>
+          <button type="button" id="return-unit" hidden></button>
+        </div>
         <div class="viewer-footer">
           <p id="floor-status" class="floor-status" aria-live="polite">Arraste para girar · Explore o 11º pavimento</p>
           <div id="model-controls" class="model-controls" role="group" aria-label="Controles da maquete">
@@ -97,16 +121,16 @@
           <button class="close-button" id="close-plan" type="button" aria-label="Fechar painel de unidades">×</button>
         </div>
         <div id="sheet-content">
+          <div class="unit-switcher" id="unit-switcher" role="group" aria-label="Unidade em foco" hidden></div>
           <div id="unit-tabs" class="unit-tabs" role="tablist" aria-label="Explorar unidades" hidden>
             <button type="button" id="tab-plan" role="tab" aria-controls="plan-stage" aria-selected="true" data-panel="plan">Planta</button>
             <button type="button" id="tab-details" role="tab" aria-controls="details-panel" aria-selected="false" tabindex="-1" data-panel="details" disabled>Detalhes</button>
             <button type="button" id="tab-compare" role="tab" aria-controls="compare-panel" aria-selected="false" tabindex="-1" data-panel="compare">Comparar</button>
           </div>
           <section id="plan-stage" class="plan-stage" role="tabpanel" aria-labelledby="tab-plan" hidden>
-            <div class="stage-heading">
-              <p class="eyebrow">Planta de navegação</p>
-              <h2 id="plan-title" tabindex="-1">11º pavimento</h2>
-            </div>
+            <div id="panel-unit-plan" hidden></div>
+            <details id="floor-layout" open>
+            <summary>Localizar no 11º pavimento</summary>
             <div class="plan" aria-label="Posição das unidades no 11º pavimento" role="group">
               <span class="corridor corridor-vertical" aria-hidden="true"></span>
               <span class="corridor corridor-horizontal" aria-hidden="true"></span>
@@ -137,6 +161,7 @@
               <span>Posições aproximadas · Sem escala</span>
               <a href="https://acetdkxqjkygfagvspmf.supabase.co/storage/v1/object/public/images/plantas/1773875574260-z9gcw2hm1up.png" target="_blank" rel="noopener">Planta da incorporadora ↗</a>
             </div>
+            </details>
           </section>
 
           <h2 id="units-title">Unidades</h2>
@@ -146,7 +171,9 @@
             <div id="unit-detail" class="unit-detail"></div>
           </section>
           <section id="compare-panel" role="tabpanel" aria-labelledby="tab-compare" hidden>
+            <div class="compare-unit-head" aria-hidden="true"><span>Unidades</span><strong>1103</strong><strong>1108</strong></div>
             <p id="compare-panel-summary"></p>
+            <div id="compare-panel-facts"></div>
             <div class="plan-viewport" tabindex="0" aria-label="Plantas em comparação"><div id="compare-panel-plans" class="compare-plans"></div></div>
             <div class="plan-zoom" role="group" aria-label="Zoom das duas plantas" data-plan-zoom="compare"></div>
             <button type="button" id="expand-compare" class="compare-button">Ampliar comparação <span aria-hidden="true">↗</span></button>
@@ -173,7 +200,7 @@
           <div id="aerial-options" class="aerial-options" role="group" aria-label="Fotos do entorno"></div>
           <a href="https://www.youtube.com/watch?v=v5W3nDjcgIw" target="_blank" rel="noopener">Sobrevoo de 2026 ↗</a>
         </div>
-        <p class="aerial-note">Registros do bairro e da orla, feitos entre 2016 e 2021.</p>
+        <p class="aerial-note">Fotografias da orla e do bairro feitas entre 2016 e 2021.</p>
       </div>
     </details>
 
@@ -191,6 +218,8 @@
         <li><a href="https://coutinhoincorporacoes.com.br/empreendimentos/eef93708-9dc0-45ea-bf3e-68d5dec86f73" target="_blank" rel="noopener">Coutinho Incorporações ↗</a></li>
         <li><a href="https://www.repositorio.ufal.br/jspui/handle/123456789/15662" target="_blank" rel="noopener">Implantação · UFAL, ficha 27 ↗</a></li>
         <li><a href="https://www.hiltonimoveis.com.br/empreendimentos/five-ponta-verde" target="_blank" rel="noopener">Hilton Imóveis ↗</a></li>
+        <li><a href="https://maceio.al.gov.br/noticias/dmtt/prefeitura-leva-acao-educativa-a-orla-aberta-sobre-o-uso-de-faixas-na-ponta-verde" target="_blank" rel="noopener">Calçadão e Orla Aberta · Prefeitura ↗</a></li>
+        <li><a href="https://www.lopana.com.br/contato/" target="_blank" rel="noopener">Referência de acesso à praia · Lopana ↗</a></li>
         <li><a href="https://maceio.al.gov.br/noticias/semtur/ponta-verde-e-eleita-uma-das-melhores-praias-da-america-do-sul" target="_blank" rel="noopener">Foto aérea da Prefeitura de Maceió ↗</a></li>
       </ul>
     </footer>
@@ -205,13 +234,12 @@
       <form method="dialog"><button class="close-button" aria-label="Fechar comparação" autofocus>×</button></form>
     </div>
     <p id="compare-summary" class="compare-summary"></p>
+    <div id="compare-content"></div>
     <div class="plan-viewport" tabindex="0" aria-label="Plantas em comparação"><div id="compare-plans" class="compare-plans"></div></div>
     <div class="plan-zoom" role="group" aria-label="Zoom das duas plantas" data-plan-zoom="compare"></div>
     <p class="compare-plan-note">Plantas esquemáticas na mesma escala gráfica aproximada. Portas, janelas e ambientes seguem as tipologias publicadas. As plantas não informam áreas por ambiente.</p>
-    <div id="compare-content"></div>
     <button type="button" class="text-button" id="copy-compare">Copiar link da comparação</button>
     <output id="compare-share-status" class="share-status" aria-live="polite"></output>
-    <p class="snapshot-note">Valores anunciados em 02/07/2026. Consulte a imobiliária para preço e disponibilidade atuais.</p>
   </dialog>
   <dialog id="plan-dialog" aria-labelledby="large-plan-title">
     <div class="dialog-top">
