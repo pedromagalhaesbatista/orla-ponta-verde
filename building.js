@@ -8,7 +8,16 @@
     [-1.48,-1.08],[4.62,-1.08],[4.62,2.56],[-4.48,2.56]];
   const floorHeight = floor => 1.62 + (floor - 1) * 1.04;
   const floor11 = floorHeight(11);
-  const balconyEye = [-1.03, (floor11 + .60) * .69, 2.38];
+  const balconyEye = [-1.03, (floor11 + .60) * .69, 2.02];
+  const balconyViews = {
+    east: { yaw: .84, pitch: .23 },
+    sea: { yaw: 0, pitch: .26 },
+    west: { yaw: -.84, pitch: .23 }
+  };
+  const lighting = {
+    day: { sun: [-.50, .84, .42], shadow: [.28, -.29], tone: 'rgba(39,35,28,', ambient: .15 },
+    dusk: { sun: [-.88, .32, .35], shadow: [.63, -.35], tone: 'rgba(42,34,57,', ambient: .29 }
+  };
   const unitPresets = { '1103': 'rear', '1108': 'orla' };
   const minZoom = .095;
   const maxZoom = 1.45;
@@ -206,6 +215,46 @@
     return inside;
   }
 
+  function palmsAlongParks(parks) {
+    const palms = [];
+    for (const outline of parks) {
+      const left = Math.min(...outline.map(([x]) => x));
+      const right = Math.max(...outline.map(([x]) => x));
+      const top = Math.min(...outline.map(([, z]) => z));
+      const bottom = Math.max(...outline.map(([, z]) => z));
+      const polygon = outline.map(([x, z]) => ({ x, y: z }));
+      for (let x = left + 2; x < right - 1; x += 2.6) {
+        const index = palms.length;
+        const z = top + (bottom - top) * (.42 + .23 * Math.sin(x * 1.27));
+        if (!contains(polygon, x, z)) continue;
+        palms.push({ x, z, y: 1.35 + .54 * (Math.sin(index * 3.8) + 1) / 2, angle: index * 2.39 });
+      }
+    }
+    return palms;
+  }
+
+  function balconySurfaces() {
+    const panels = [];
+    const edge = 2.49;
+    const base = floor11 + .04;
+    const top = floor11 + .32;
+    panels.push({
+      colour: '#a4c9c325',
+      points: [[-1.81,base,edge],[-.27,base,edge],[-.27,top,edge],[-1.81,top,edge]]
+    });
+    panels.push({
+      colour: '#69716c',
+      points: [[-1.82,top-.005,edge],[-.26,top-.005,edge],[-.26,top+.008,edge],[-1.82,top+.008,edge]]
+    });
+    for (const x of [-1.81,-1.43,-.61,-.27]) {
+      panels.push({
+        colour: '#4d5552',
+        points: [[x-.006,base,edge],[x+.006,base,edge],[x+.006,top,edge],[x-.006,top,edge]]
+      });
+    }
+    return panels;
+  }
+
   function createBuilding(canvas, { availableFloors, ground, visitPoints, onSelect, onHover, onViewChange, onPosition }) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
@@ -213,6 +262,8 @@
     let neighbours = [];
     let streets = [];
     let parks = [];
+    let palms = [];
+    const railing = balconySurfaces();
     let contactOutlines = [];
     let selectedUnit = null;
     const camera = cameraView(initialView);
@@ -226,6 +277,8 @@
     let selected = null;
     let hovered = null;
     let simulation = null;
+    let balconyPreset = 'sea';
+    let light = lighting.day;
     let flight = null;
 
     function draw(now) {
@@ -312,7 +365,7 @@
       const unitPoints = {};
       if (!simulation) {
         for (const { surface, points } of faces) {
-          if (!surface.unit) continue;
+          if (!surface?.unit) continue;
           const x = points.reduce((sum, point) => sum + point.x, 0) / points.length;
           const y = points.reduce((sum, point) => sum + point.y, 0) / points.length;
           if (x < 8 || x > width - 8 || y < 8 || y > height - 8) continue;
@@ -335,6 +388,7 @@
         heading: (simulation ? Math.PI - yaw : -yaw) * 180 / Math.PI,
         preset,
         simulationYaw: simulation?.yaw,
+        balconyPreset,
         width,
         height
       });
@@ -358,13 +412,19 @@
           const depth = points.reduce((sum, point) => sum + point.depth, 0) / points.length;
           visible.push({ surface, points, depth });
         }
+        for (const palm of palms) {
+          const base = project([palm.x,-.23,palm.z]);
+          const crown = project([palm.x,palm.y,palm.z]);
+          if (base.w <= .025 || crown.w <= .025 || crown.x < -90 || crown.x > width + 90) continue;
+          visible.push({ palm, depth: crown.depth });
+        }
         return visible.sort((a, b) => a.depth - b.depth);
       }
       for (const outline of parks) {
         const points = outline.map(([x, z]) => project([x, -.238, z]));
         if (points.some(point => point.w <= 0)) continue;
         trace(ctx, points);
-        ctx.fillStyle = '#53734994';
+        ctx.fillStyle = '#53734970';
         ctx.fill();
         ctx.lineWidth = 1;
         ctx.strokeStyle = '#bdc39a84';
@@ -416,7 +476,8 @@
       }
 
       for (const { outline, top } of simulation ? contactOutlines : [...contactOutlines, { outline: towerFootprint, top: 14 }]) {
-        const offsetX = top * .28, offsetZ = top * -.29;
+        const [shadowX, shadowZ] = light.shadow;
+        const offsetX = top * shadowX, offsetZ = top * shadowZ;
         const shadow = outline.map(([x,z]) => project([x + offsetX, -.22, z + offsetZ]));
         if (shadow.some(point => point.w <= 0)) continue;
         trace(ctx, shadow);
@@ -433,7 +494,11 @@
         ctx.fill();
       }
 
-      for (const { surface, points } of faces) {
+      for (const { surface, points, palm } of faces) {
+        if (palm) {
+          drawPalm(palm);
+          continue;
+        }
         if (surface.unit) {
           const active = surface.unit === selectedUnit;
           const highlighted = surface.unit === hovered?.unit;
@@ -452,9 +517,10 @@
         ctx.fill();
         const [nx, ny, nz] = surface.normal;
         const direction = Math.hypot(nx, ny, nz) || 1;
-        const light = clamp((-.50 * nx + .84 * ny + .42 * nz) / direction, -.7, 1);
+        const [sunX, sunY, sunZ] = light.sun;
+        const incidence = clamp((sunX * nx + sunY * ny + sunZ * nz) / direction, -.7, 1);
         if (!surface.details) {
-          ctx.fillStyle = 'rgba(41,44,38,' + (.15 - light * .12) + ')';
+          ctx.fillStyle = light.tone + (light.ambient - incidence * .12) + ')';
           ctx.fill();
           continue;
         }
@@ -467,10 +533,14 @@
           ctx.fillStyle = color;
           ctx.fill();
         }
-        if (light < .55) {
+        if (incidence < .55 || light === lighting.dusk) {
           trace(ctx, points);
-          ctx.fillStyle = 'rgba(39,35,28,' + ((.55 - light) * .15) + ')';
+          ctx.fillStyle = light.tone + (light.ambient - incidence * .12) + ')';
           ctx.fill();
+          if (light === lighting.dusk && incidence > .30) {
+            ctx.fillStyle = 'rgba(255,170,94,' + (incidence * .22) + ')';
+            ctx.fill();
+          }
         }
         const { floor } = surface;
         if (!floor) continue;
@@ -481,6 +551,57 @@
         if (tint) {
           trace(ctx, points);
           ctx.fillStyle = tint;
+          ctx.fill();
+        }
+      }
+      if (simulation) {
+        for (const { points, colour } of railing) {
+          const clipped = clipNear(points);
+          if (clipped.length < 3) continue;
+          trace(ctx, clipped.map(point => ({ x: point.x / point.w, y: point.y / point.w })));
+          ctx.fillStyle = colour;
+          ctx.fill();
+        }
+      }
+
+      function clipNear(points) {
+        const near = .004;
+        const source = points.map(point => homogeneous(...point));
+        const result = [];
+        for (const [i, point] of source.entries()) {
+          const previous = source[(i + source.length - 1) % source.length];
+          if ((previous.w >= near) !== (point.w >= near)) {
+            const t = (near - previous.w) / (point.w - previous.w);
+            result.push({ x: previous.x + t * (point.x - previous.x), y: previous.y + t * (point.y - previous.y), w: near });
+          }
+          if (point.w >= near) result.push(point);
+        }
+        return result;
+      }
+
+      function drawPalm({ x, z, y, angle }) {
+        const base = project([x,-.23,z]);
+        const crown = project([x+.08,y,z]);
+        const length = Math.hypot(crown.x-base.x,crown.y-base.y);
+        if (length < 3) return;
+        ctx.strokeStyle = light === lighting.dusk ? '#6a5948' : '#786958';
+        ctx.lineWidth = clamp(length * .054, .7, 3.5);
+        ctx.beginPath();
+        ctx.moveTo(base.x,base.y);
+        ctx.lineTo(crown.x,crown.y);
+        ctx.stroke();
+        for (let i = 0; i < 7; i++) {
+          const direction = angle + i * Math.PI * 2 / 7;
+          const dx = Math.cos(direction) * .46, dz = Math.sin(direction) * .46;
+          const bend = project([x+.08+dx*.65,y+.23,z+dz*.65]);
+          const end = project([x+.08+dx,y-.11,z+dz]);
+          ctx.fillStyle = light === lighting.dusk
+            ? (i % 2 ? '#627044' : '#40593b') : (i % 2 ? '#638853' : '#386b48');
+          const frondWidth = clamp(length * .085, .6, 4);
+          ctx.beginPath();
+          ctx.moveTo(crown.x,crown.y);
+          ctx.quadraticCurveTo(bend.x,bend.y-frondWidth,end.x,end.y);
+          ctx.quadraticCurveTo(bend.x,bend.y+frondWidth,crown.x,crown.y);
           ctx.fill();
         }
       }
@@ -518,7 +639,7 @@
     function pickFromFaces(faces, x, y) {
       for (let i = faces.length - 1; i >= 0; i--) {
         const { surface, points } = faces[i];
-        if (contains(points, x, y)) return surface.floor ? surface : null;
+        if (surface && contains(points, x, y)) return surface.floor ? surface : null;
       }
       return null;
     }
@@ -556,12 +677,13 @@
 
     function changeView(action) {
       if (simulation) {
+        balconyPreset = action === 'reset' ? 'sea' : null;
         switch (action) {
           case 'left': simulation.yaw = clamp(simulation.yaw + .24, -1.12, 1.12); break;
           case 'right': simulation.yaw = clamp(simulation.yaw - .24, -1.12, 1.12); break;
           case 'up': simulation.pitch = clamp(simulation.pitch - .08, -.08, .58); break;
           case 'down': simulation.pitch = clamp(simulation.pitch + .08, -.08, .58); break;
-          case 'reset': simulation = { yaw: 0, pitch: .29 }; break;
+          case 'reset': simulation = { ...balconyViews.sea }; break;
         }
         redraw();
         return;
@@ -636,6 +758,7 @@
       if (simulation) {
         if (!dragged && distance(current, start) < 5) return;
         dragged = true;
+        balconyPreset = null;
         simulation.yaw = clamp(simulation.yaw + (current.x - previous.x) * .007, -1.12, 1.12);
         simulation.pitch = clamp(simulation.pitch - (current.y - previous.y) * .004, -.08, .58);
       } else if (pointers.size === 2) {
@@ -682,6 +805,16 @@
     resize();
     return {
       changeView,
+      changeLighting(preset) {
+        light = lighting[preset];
+        redraw();
+      },
+      lookFromBalcony(preset) {
+        if (!simulation) return;
+        balconyPreset = preset;
+        simulation = { ...balconyViews[preset] };
+        redraw();
+      },
       showFootprint(visible) {
         outlineVisible = visible;
         redraw();
@@ -700,7 +833,8 @@
       },
       simulate(enabled) {
         flight = null;
-        simulation = enabled ? { yaw: 0, pitch: .29 } : null;
+        balconyPreset = 'sea';
+        simulation = enabled ? { ...balconyViews.sea } : null;
         setHover(null);
         redraw();
       },
@@ -715,6 +849,7 @@
       },
       setParks(features) {
         parks = features;
+        palms = palmsAlongParks(features);
         redraw();
       },
       select(floor) {

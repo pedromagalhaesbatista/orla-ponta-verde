@@ -138,6 +138,9 @@ const visitMarkers = $('#visit-markers');
 const visitCard = $('#visit-card');
 const returnUnit = $('#return-unit');
 const satelliteToggle = $('#satellite-toggle');
+const lightControls = $('#scene-lighting');
+const lightButtons = $$('[data-light]');
+const balconyButtons = $$('[data-balcony-view]');
 const photoDialog = $('#photo-dialog');
 const photoViewport = $('#photo-viewport');
 const photoImage = $('#aerial-photo');
@@ -167,7 +170,7 @@ const model = window.createBuilding(canvas, {
     originX: -5,
     originZ: 24
   },
-  onPosition({ footprint, floor, units: points, beach, avenue, entrance, visit, width, height, heading, preset, simulationYaw }) {
+  onPosition({ footprint, floor, units: points, beach, avenue, entrance, visit, width, height, heading, preset, simulationYaw, balconyPreset }) {
     const aerial = activeView === 'aerial';
     pin.hidden = !aerial || simulating;
     if (!pin.hidden) {
@@ -195,6 +198,9 @@ const model = window.createBuilding(canvas, {
     if (simulating && simulationYaw !== lastSimulationYaw) {
       drawPlan(simOrientation, '1108', { simulationYaw });
       lastSimulationYaw = simulationYaw;
+    }
+    if (simulating) for (const button of balconyButtons) {
+      button.setAttribute('aria-pressed', String(button.dataset.balconyView === balconyPreset));
     }
     const anchorFloor = !aerial && !simulating && preset !== 'rear' && floor.x + 13 < width - 68 && floor.y > 92;
     floorChip.hidden = aerial;
@@ -378,11 +384,21 @@ function setSatelliteOnly(enabled) {
   satelliteToggle.textContent = enabled ? 'Mostrar maquete' : 'Só satélite';
   satelliteToggle.setAttribute('aria-label', enabled ? 'Mostrar maquete sobre o satélite' : 'Ver imagem de satélite sem a maquete');
   model?.showSatelliteOnly(enabled);
+  workspace.classList.toggle('satellite-only', enabled);
+  lightControls.hidden = !model || enabled;
   if (!simulating) canvas.setAttribute('aria-label', enabled ? 'Imagem de satélite de Ponta Verde com o perímetro aproximado do Five Flex Life'
     : 'Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde');
 }
 
 satelliteToggle.addEventListener('click', () => setSatelliteOnly(!satelliteOnly));
+lightControls.hidden = !model;
+for (const button of lightButtons) button.addEventListener('click', () => {
+  const light = button.dataset.light;
+  workspace.classList.toggle('dusk-light', light === 'dusk');
+  for (const option of lightButtons) option.setAttribute('aria-pressed', String(option === button));
+  model?.changeLighting(light);
+});
+for (const button of balconyButtons) button.addEventListener('click', () => model?.lookFromBalcony(button.dataset.balconyView));
 
 function openLandmark(id, control) {
   const { title, text, location } = landmarks[id];

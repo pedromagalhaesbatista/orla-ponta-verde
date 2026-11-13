@@ -16,6 +16,8 @@ Em **Entorno**, a entrada indica o endereço público de nº 1811 (nó OSM 30122
 
 O botão **Fotos** abre a galeria em qualquer modo de visualização. O panorama de 2012 é uma fotografia à beira-mar, de André Lage Freitas, sob CC BY-SA 3.0. A fotografia do farol é do mesmo autor, sob CC BY-SA 4.0. A vista da orla ao anoitecer é de Yuri Cedrim Lessa, sob CC BY-SA 3.0. As fotografias recebem versões para web e miniaturas. A galeria identifica a fonte, o autor e a licença de cada fotografia.
 
+A cena 3D oferece luz de dia e de fim de tarde, com ajustes de cores e direção das sombras. A iluminação é ilustrativa. Os coqueiros são distribuídos esquematicamente nos polígonos de áreas verdes. Na vista simulada da 1108, o guarda-corpo é aproximado, e os atalhos orientam a câmera para sudeste, sul e sudoeste.
+
 Para executar localmente, rode `python3 -m http.server 8000 --directory dist` e abra http://localhost:8000. Mantenha `dist` e `docs` sincronizados. O repositório público `pedromagalhaesbatista/orla-ponta-verde` publica a versão estática pela raiz da branch `main`.
 
 ## Captação de imagens

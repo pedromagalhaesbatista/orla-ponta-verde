@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=five-9">
-  <script src="building.js?v=five-9" defer></script>
-  <script src="app.js?v=five-9" defer></script>
+  <link rel="stylesheet" href="style.css?v=five-10">
+  <script src="building.js?v=five-10" defer></script>
+  <script src="app.js?v=five-10" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -78,6 +78,11 @@
                 <button type="button" class="text-button" data-open-photo="panorama" aria-haspopup="dialog">Ver panorama da praia</button>
               </div>
             </div>
+            <div class="balcony-views" role="group" aria-label="Direção da vista na varanda">
+              <button type="button" data-balcony-view="east" aria-pressed="false">Sudeste</button>
+              <button type="button" data-balcony-view="sea" aria-pressed="true">Para o mar</button>
+              <button type="button" data-balcony-view="west" aria-pressed="false">Sudoeste</button>
+            </div>
           </div>
           <div class="model-meta">
             <span class="model-label" id="scene-label">Maquete sobre imagem de satélite</span>
@@ -110,7 +115,13 @@
             <button type="button" data-camera="in" aria-label="Aproximar" title="Aproximar">+</button>
             <button type="button" data-camera="reset" aria-label="Restaurar vista" title="Restaurar vista">⌂</button>
           </div>
-          <div class="scene-credit"><a href="#fontes">Imagem © INPE</a><a id="osm-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" hidden>© OpenStreetMap contributors</a></div>
+          <div class="scene-credit">
+            <div id="scene-lighting" class="scene-lighting" role="group" aria-label="Iluminação ilustrativa">
+              <button type="button" data-light="day" aria-pressed="true">Dia</button>
+              <button type="button" data-light="dusk" aria-pressed="false">Fim de tarde</button>
+            </div>
+            <a href="#fontes">Imagem © INPE</a><a id="osm-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" hidden>© OpenStreetMap contributors</a>
+          </div>
         </div>
       </section>
 
@@ -201,7 +212,7 @@
     <footer class="sources" id="fontes">
       <h2>Fontes e créditos</h2>
       <p>Planta de navegação e maquete produzidas para esta demonstração. Demonstração independente. Dados das unidades consultados na tabela de 02/07/2026. Preços e disponibilidade podem ter mudado.</p>
-      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), com resolução de origem de 2 m, recortada, reprojetada e tratada para realçar os detalhes existentes. A fachada e a implantação aproximadas seguem as perspectivas da Coutinho e o estudo da UFAL. As ruas, a ciclovia, as áreas verdes e os volumes vizinhos usam dados do OpenStreetMap. As larguras das vias, as alturas dos edifícios e os detalhes das fachadas vizinhas são aproximados. A vista da unidade 1108 é uma simulação a partir de uma posição aproximada na maquete.</p>
+      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), com resolução de origem de 2 m, recortada, reprojetada e tratada para realçar os detalhes existentes. A fachada e a implantação aproximadas seguem as perspectivas da Coutinho e o estudo da UFAL. As ruas, a ciclovia, as áreas verdes e os volumes vizinhos usam dados do OpenStreetMap. As larguras das vias, as alturas e os detalhes dos edifícios vizinhos são aproximados. Os coqueiros, os cenários de luz e o guarda-corpo são ilustrativos. A vista da unidade 1108 é simulada a partir de uma posição aproximada na maquete.</p>
       <ul>
         <li><a href="https://data.inpe.br/bdc/stac/v1/collections/CB4A-WPM-PCA-FUSED-1/items/CBERS4A_WPM_PCA_RGB321_20261002_192_125" target="_blank" rel="noopener">Imagem de satélite · INPE ↗</a></li>
         <li><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">Edifícios e vias · OpenStreetMap, ODbL ↗</a></li>

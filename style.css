@@ -567,6 +567,19 @@ main { width: min(100% - clamp(16px, 2vw, 32px), 1760px); }
 .photo-nav { justify-content: center; margin-top: 5px; }
 .photo-nav button { width: 42px; min-height: 34px; border: 1px solid #9aa992; border-radius: 5px; background: #f3f4e9; font-size: 1.1rem; }
 .photo-nav output { min-width: 4.5em; text-align: center; }
+.scene-lighting { display: flex; gap: 3px; width: 100%; justify-content: flex-end; margin-bottom: 2px; }
+.scene-lighting button { min-height: 30px; padding: 2px 7px; border: 1px solid #577367; border-radius: 5px; background: #183831; color: #ebefdf; font-size: .72rem; }
+.scene-lighting button[aria-pressed="true"] { background: var(--lime); color: #173329; border-color: var(--lime); }
+.dusk-light:not(.satellite-only) .satellite-ground { filter: brightness(.73) saturate(1.04) sepia(.23); }
+.dusk-light.simulating .model-stage { background: linear-gradient(#677f9f, #a49aa7 38%, #e5ad87 64%, #394e64); }
+.sim-view { bottom: 12px; }
+.sim-inset { top: auto; right: 0; bottom: 0; transform: none; }
+.balcony-views { position: absolute; top: 64px; left: 0; display: flex; gap: 4px; }
+.balcony-views button { min-height: 32px; padding: 4px 8px; }
+.balcony-views [aria-pressed="true"] { background: var(--lime); color: #173329; border-color: var(--lime); }
+@media (min-width: 801px) {
+  .model-stage { height: clamp(380px, calc(100svh - 213px), 950px); }
+}
 @media (max-width: 1010px) {
   .gallery-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
@@ -578,6 +591,12 @@ main { width: min(100% - clamp(16px, 2vw, 32px), 1760px); }
   .gallery-photo .gallery-photo-date { padding: 0 7px; }
   .aerial-open.plan-open:not(.sheet-collapsed) .model-stage { height: clamp(145px, calc(54svh - 281px), 385px); }
   .aerial-open.plan-open.sheet-collapsed .model-stage { height: calc(100svh - 369px - env(safe-area-inset-bottom)); }
+  .scene-lighting { justify-content: center; }
+  .sim-view { bottom: 8px; }
+  .sim-inset { bottom: 3px; transform: none; }
+  .balcony-views { top: 77px; }
+  .balcony-views button { font-size: .71rem; }
+  .simulating.plan-open.sheet-collapsed .model-stage { height: calc(100svh - 334px - env(safe-area-inset-bottom)); }
 }
 @media (max-width: 365px) {
   .viewer-links { gap: 4px; }
