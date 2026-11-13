@@ -3,6 +3,7 @@ const $$ = selector => [...document.querySelectorAll(selector)];
 const planDirectory = 'https://www.hiltonimoveis.com.br/developments/five-ponta-verde/plans/';
 const listingUrl = 'https://www.hiltonimoveis.com.br/empreendimentos/five-ponta-verde#unidades';
 const listingDate = '02/07/2026';
+const streetViewUrl = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=-9.663479,-35.704663&heading=0&pitch=12&fov=80';
 const units = [
   {
     id: '1103', wing: 'Ala posterior', area: 45.9, price: 1279070, plan: 'planta-terminacao-03.webp',
@@ -22,11 +23,11 @@ const landmarks = {
   },
   promenade: {
     title: 'Calçadão da orla', point: [7.517, -.22, 13.749], location: '-9.6636284,-35.7043796',
-    text: 'Trecho do passeio à beira-mar na Av. Sílvio Carlos Viana.'
+    text: 'Trecho do passeio à beira-mar na Av. Sílvio Carlos Viana.', photo: 'calcadao'
   },
   beach: {
     title: 'Praia de Ponta Verde', point: [17.526, -.22, 18.367], location: '-9.6638247,-35.7039480',
-    text: 'Referência para chegar à faixa de areia na altura do Lopana, na Av. Sílvio Carlos Viana, 27.'
+    text: 'Referência para chegar à faixa de areia na altura do Lopana, na Av. Sílvio Carlos Viana, 27.', photo: 'praia'
   }
 };
 const photographs = [
@@ -48,6 +49,15 @@ const photographs = [
     alt: 'Faixa de areia de Ponta Verde com coqueiros, prédios à beira-mar e banhistas.',
     author: 'André Lage Freitas',
     source: 'Recreation_at_Ponta_Verde_beach_landscape_-_Macei%C3%B3%2C_Brazil.jpg'
+  },
+  {
+    id: 'calcadao', file: 'calcadao-ponta-verde.webp',
+    option: 'Calçadão',
+    title: 'Calçadão de Ponta Verde · 2015',
+    kind: 'Vista do calçadão',
+    alt: 'Calçadão de Ponta Verde junto à areia, com coqueiros, ciclistas e o mar ao fundo.',
+    author: 'Deniltonlima', licence: '3.0',
+    source: 'Praia_da_Ponta_Verde_AL.jpg'
   },
   {
     id: 'farol', file: 'farol-ponta-verde.webp',
@@ -133,6 +143,10 @@ const planDialog = $('#plan-dialog');
 const compass = $('#compass');
 const cameraHeading = $('#camera-heading');
 const scenePresets = $$('[data-preset]');
+const neighbourhoodPresets = $$('[data-neighbourhood-preset]');
+const streetAccess = $('#site-entrance');
+const visitStreet = $('#visit-street');
+for (const link of $$('[data-street-view]')) link.href = streetViewUrl;
 const visitBar = $('#visit-bar');
 const visitMarkers = $('#visit-markers');
 const visitCard = $('#visit-card');
@@ -170,7 +184,7 @@ const model = window.createBuilding(canvas, {
     originX: -5,
     originZ: 24
   },
-  onPosition({ footprint, floor, units: points, beach, avenue, entrance, visit, width, height, heading, preset, simulationYaw, balconyPreset }) {
+  onPosition({ footprint, floor, units: points, beach, avenue, visit, width, height, heading, preset, simulationYaw, balconyPreset }) {
     const aerial = activeView === 'aerial';
     pin.hidden = !aerial || simulating;
     if (!pin.hidden) {
@@ -192,9 +206,8 @@ const model = window.createBuilding(canvas, {
     cameraHeading.textContent = short;
     compass.setAttribute('aria-label', 'Rumo da câmera: ' + name + ', ' + bearing + ' graus');
     for (const button of scenePresets) button.setAttribute('aria-pressed', String(button.dataset.preset === preset && !aerial && !simulating));
-    const access = $('#site-entrance');
-    access.hidden = aerial || simulating || preset !== 'entrance' || entrance.w <= 0;
-    if (!access.hidden) place(access, entrance, 75, width - 75, 120, height - 22, 0, 10);
+    for (const button of neighbourhoodPresets) button.setAttribute('aria-pressed', String(button.dataset.neighbourhoodPreset === preset && aerial));
+    streetAccess.hidden = aerial || simulating || !['entrance', 'facade'].includes(preset);
     if (simulating && simulationYaw !== lastSimulationYaw) {
       drawPlan(simOrientation, '1108', { simulationYaw });
       lastSimulationYaw = simulationYaw;
@@ -283,7 +296,7 @@ function recoverGroundImage() {
 groundImage.addEventListener('error', recoverGroundImage);
 if (groundImage.complete && !groundImage.naturalWidth) recoverGroundImage();
 $('#model-controls').hidden = !model;
-$('.scene-presets').hidden = !model;
+$('#building-presets').hidden = !model;
 floorChip.hidden = false;
 model?.select('11');
 if (model) {
@@ -374,6 +387,8 @@ function updateSummary() {
     : 'Arraste para girar · Selecione uma unidade ou o 11º pavimento';
   visitBar.hidden = activeView !== 'aerial' || simulating || !model;
   visitMarkers.hidden = visitBar.hidden;
+  $('#building-presets').hidden = activeView === 'aerial' || !model;
+  $('#neighbourhood-presets').hidden = visitBar.hidden;
   returnUnit.hidden = !unit;
   returnUnit.textContent = unit ? 'Voltar à ' + unit.id : '';
 }
@@ -401,13 +416,19 @@ for (const button of lightButtons) button.addEventListener('click', () => {
 for (const button of balconyButtons) button.addEventListener('click', () => model?.lookFromBalcony(button.dataset.balconyView));
 
 function openLandmark(id, control) {
-  const { title, text, location } = landmarks[id];
+  const { title, text, location, photo } = landmarks[id];
   selectedLandmark = id;
   lastLandmarkControl = control;
   $('#visit-title').textContent = title;
   $('#visit-description').textContent = text;
   $('#visit-map').href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(location);
-  $('#visit-photo').hidden = id !== 'beach';
+  visitStreet.hidden = id !== 'entrance';
+  const visitPhoto = $('#visit-photo');
+  visitPhoto.hidden = !photo;
+  if (photo) {
+    visitPhoto.dataset.openPhoto = photo;
+    visitPhoto.textContent = id === 'beach' ? 'Ver foto da praia' : 'Ver foto do calçadão';
+  }
   for (const button of $$('[data-landmark]')) button.setAttribute('aria-pressed', String(button.dataset.landmark === id));
   visitCard.hidden = false;
   $('#visit-title').focus({ preventScroll: true });
@@ -944,6 +965,9 @@ for (const button of $$('[data-camera]')) {
 }
 for (const button of scenePresets) {
   button.addEventListener('click', () => setView('model', { cameraAction: button.dataset.preset }));
+}
+for (const button of neighbourhoodPresets) {
+  button.addEventListener('click', () => model?.changeView(button.dataset.neighbourhoodPreset));
 }
 $('#compare-open').addEventListener('click', () => openPanel('compare', { focus: true }));
 $('#expand-compare').addEventListener('click', () => {
