@@ -4,6 +4,10 @@ const planDirectory = 'https://www.hiltonimoveis.com.br/developments/five-ponta-
 const listingUrl = 'https://www.hiltonimoveis.com.br/empreendimentos/five-ponta-verde#unidades';
 const listingDate = '02/07/2026';
 const streetViewUrl = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=-9.663479,-35.704663&heading=0&pitch=12&fov=80';
+const crossingViewUrl = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=-9.6636945,-35.7058051&heading=0&pitch=0&fov=85';
+const frontageUrl = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=-9.663317,-35.704660&heading=331&pitch=29&fov=74';
+const frontageEmbed = 'https://www.google.com/maps/embed?pb=!4v1794600923710!6m8!1m7!1sQqlAEqjeEOMyuKxQCEDBlA!2m2!1d-9.663328593741467!2d-35.70462662916575!3f331!4f29!5f0.8082170992969904';
+const metresPerSceneUnit = 4.8;
 const units = [
   {
     id: '1103', wing: 'Ala posterior', area: 45.9, price: 1279070, plan: 'planta-terminacao-03.webp',
@@ -19,17 +23,26 @@ const units = [
 const landmarks = {
   entrance: {
     title: 'Entrada do Five', point: [.722, -.22, 4.395], location: '-9.6632308,-35.7046726',
-    text: 'Av. Sílvio Carlos Viana, 1811. Marcador no endereço do prédio. Confirme com a imobiliária o acesso residencial para a visita.'
+    text: 'Av. Sílvio Carlos Viana, 1811. O percurso começa na calçada junto ao endereço. Confirme com a imobiliária o acesso residencial.', streetView: streetViewUrl
+  },
+  crossing: {
+    title: 'Travessia da avenida', point: [-25.55, -.22, 15.30], location: '-9.6636945,-35.7058051',
+    text: 'Faixa de pedestres a oeste do Five, visível no Street View de julho de 2026.', streetView: crossingViewUrl
   },
   promenade: {
     title: 'Calçadão da orla', point: [7.517, -.22, 13.749], location: '-9.6636284,-35.7043796',
-    text: 'Trecho do passeio à beira-mar na Av. Sílvio Carlos Viana.', photo: 'calcadao'
+    text: 'Trecho do passeio à beira-mar na Av. Sílvio Carlos Viana. A fotografia mostra o calçadão de Ponta Verde.', photo: 'calcadao'
   },
   beach: {
     title: 'Praia de Ponta Verde', point: [17.526, -.22, 18.367], location: '-9.6638247,-35.7039480',
-    text: 'Referência para chegar à faixa de areia na altura do Lopana, na Av. Sílvio Carlos Viana, 27.', photo: 'praia'
+    text: 'Fim do percurso no calçadão, na altura do Lopana. O marcador indica a referência de acesso à areia.', photo: 'praia'
   }
 };
+// Calçada norte da avenida, travessia OSM 260818623 e calçadão OSM 407501856.
+const walkPoints = [[.722, 4.395], [-3.1, 4.72], [-16.87, 5.85], [-26.38, 7.22], [-26.30, 8.47],
+  [-25.55, 15.30], [-25.42, 16.42], [-19.73, 15.58], [-5.11, 14.12], [7.52, 13.75], [17.32, 13.82]];
+const walkMetres = Math.round(walkPoints.slice(1).reduce((total, [x, z], i) =>
+  total + Math.hypot(x - walkPoints[i][0], z - walkPoints[i][1]), 0) * metresPerSceneUnit * Math.cos(9.663 * Math.PI / 180) / 10) * 10;
 const photographs = [
   {
     id: 'panorama', file: 'panorama-ponta-verde.webp',
@@ -125,11 +138,13 @@ let selectedPhoto = null;
 const canvas = $('#building-canvas');
 const tooltip = $('#floor-tooltip');
 const pin = $('#site-pin');
+const towerName = $('#tower-name');
 const floorChip = $('.floor-chip');
 const planStage = $('#plan-stage');
 const workspace = $('.workspace');
 const sheetHeader = $('#sheet-header');
 const sheetToggle = $('#sheet-toggle');
+const unitsDrawer = $('#units-drawer');
 const panelToggle = $('#panel-toggle');
 const sheetContent = $('#sheet-content');
 const compareDialog = $('#compare-dialog');
@@ -146,12 +161,22 @@ const scenePresets = $$('[data-preset]');
 const neighbourhoodPresets = $$('[data-neighbourhood-preset]');
 const streetAccess = $('#site-entrance');
 const visitStreet = $('#visit-street');
+const frontageView = $('#frontage-view');
+const frontageFrame = $('#frontage-frame');
+const closeFrontage = $('#close-frontage');
+let frontageOpener = null;
+$('#frontage-link').href = frontageUrl;
+for (const link of $$('[data-frontage-link]')) link.href = frontageUrl;
 for (const link of $$('[data-street-view]')) link.href = streetViewUrl;
+for (const link of $$('[data-crossing-view]')) link.href = crossingViewUrl;
 const visitBar = $('#visit-bar');
 const visitMarkers = $('#visit-markers');
 const visitCard = $('#visit-card');
 const returnUnit = $('#return-unit');
 const satelliteToggle = $('#satellite-toggle');
+const walkToggle = $('#walk-toggle');
+const walkCard = $('#walk-card');
+$('#walk-distance').textContent = `Cerca de ${walkMetres} m a pé · Até o calçadão na altura do Lopana`;
 const lightControls = $('#scene-lighting');
 const lightButtons = $$('[data-light]');
 const balconyButtons = $$('[data-balcony-view]');
@@ -160,6 +185,7 @@ const photoViewport = $('#photo-viewport');
 const photoImage = $('#aerial-photo');
 const photoZoom = $('#photo-zoom');
 let satelliteOnly = false;
+let walking = false;
 const unitSwitcher = $('#unit-switcher');
 let selectedLandmark = null;
 let lastLandmarkControl = null;
@@ -175,27 +201,32 @@ let activeView = 'model';
 const model = window.createBuilding(canvas, {
   availableFloors: new Set(['11']),
   visitPoints: Object.fromEntries(Object.entries(landmarks).map(([id, landmark]) => [id, landmark.point])),
+  walkPoints,
   ground: {
     element: groundImage,
     size: 1152,
     metresPerPixel: 2350 / 1152,
-    metresPerUnit: 4.8,
+    metresPerUnit: metresPerSceneUnit,
     // Shift from the mapped frontage pin towards the building footprint.
     originX: -5,
     originZ: 24
   },
-  onPosition({ footprint, floor, units: points, beach, avenue, visit, width, height, heading, preset, simulationYaw, balconyPreset }) {
+  onPosition({ footprint, rooftop, floor, units: points, beach, avenue, visit, width, height, heading, preset, simulationYaw, balconyPreset }) {
     const aerial = activeView === 'aerial';
     pin.hidden = !aerial || simulating;
     if (!pin.hidden) {
       const x = Math.max(74, Math.min(width - 74, footprint.x));
-      const y = Math.max(74, Math.min(height - 30, footprint.y - Math.min(156, height * .43)));
+      const y = Math.max(66, Math.min(height - 30, footprint.y - Math.min(walking ? 60 : 156, height * .43)));
       place(pin, { x, y }, 0, width, 0, height);
       const dx = footprint.x - x;
       const dy = footprint.y - y + 2;
       pin.style.setProperty('--leader-length', Math.hypot(dx, dy) + 'px');
       pin.style.setProperty('--leader-angle', Math.atan2(dx, dy) + 'rad');
     }
+    const towerY = rooftop.y - 28;
+    towerName.hidden = aerial || simulating || rooftop.w <= 0 || rooftop.x < 65 || rooftop.x > width - 65
+      || towerY < (width < 520 ? 108 : 63) || towerY > height - 22;
+    if (!towerName.hidden) place(towerName, { x: rooftop.x, y: towerY }, 0, width, 0, height);
     compass.hidden = false;
     const bearing = (Math.round(heading) + 360) % 360;
     const [short, name] = [
@@ -237,10 +268,11 @@ const model = window.createBuilding(canvas, {
     rotateToUnit.hidden = aerial || !selectedUnit || Boolean(points[selectedUnit.id]) || simulating;
 
     // Leave the projected pins in geographic order and stagger nearby labels.
-    const markerOffsets = { entrance: [-90, 14], promenade: [-41, 30], beach: [49, 42] };
+    const markerOffsets = { entrance: [-65, 21], crossing: [0, 26], promenade: [-26, 27], beach: [49, 42] };
     for (const button of visitMarkers.children) {
       const point = visit[button.dataset.landmark];
-      button.hidden = !aerial || simulating || point.w <= 0 || point.x < 0 || point.x > width || point.y < 0 || point.y > height;
+      button.hidden = !aerial || simulating || (button.dataset.landmark === 'crossing' && !walking)
+        || point.w <= 0 || point.x < 0 || point.x > width || point.y < 0 || point.y > height;
       if (!button.hidden) {
         place(button, point, 53, width - 53, 64, height - 18, ...markerOffsets[button.dataset.landmark]);
         const dx = point.x - parseFloat(button.style.left);
@@ -321,8 +353,11 @@ function place(element, point, minX, maxX, minY, maxY, offsetX = 0, offsetY = 0)
 }
 
 function setView(view, { cameraAction, updateUrl = true } = {}) {
+  if (!frontageView.hidden) hideFrontage();
+  const returningToUnit = activeView === 'aerial' && view === 'model' && !cameraAction && selectedUnit;
   if (simulating) setSimulation(false);
   activeView = view;
+  if (view !== 'aerial' && walking) setWalk(false);
   if (view !== 'aerial') closeLandmark();
   if (view !== 'aerial') setSatelliteOnly(false);
   workspace.classList.toggle('aerial-open', view === 'aerial');
@@ -332,10 +367,34 @@ function setView(view, { cameraAction, updateUrl = true } = {}) {
   }
   tooltip.hidden = true;
   model?.select('11');
-  model?.changeView(cameraAction || view);
+  if (returningToUnit) model?.showUnit(selectedUnit.id);
+  else model?.changeView(cameraAction || view);
   updateSummary();
   if (updateUrl) syncUrl();
 }
+
+function showFrontage(button) {
+  setView('model', { cameraAction: 'facade' });
+  frontageOpener = button;
+  if (!frontageFrame.hasAttribute('src')) frontageFrame.src = frontageEmbed;
+  frontageView.hidden = false;
+  workspace.classList.add('frontage-open');
+  canvas.inert = true;
+  if (mediaSmall.matches) setSheetExpanded(false);
+  $('.site-header').scrollIntoView({ block: 'start' });
+  closeFrontage.focus({ preventScroll: true });
+}
+
+function hideFrontage({ restoreFocus = false } = {}) {
+  frontageView.hidden = true;
+  workspace.classList.remove('frontage-open');
+  canvas.inert = false;
+  if (restoreFocus) (streetAccess.hidden ? frontageOpener : streetAccess)?.focus({ preventScroll: true });
+  frontageOpener = null;
+}
+
+for (const button of $$('[data-open-frontage]')) button.addEventListener('click', () => showFrontage(button));
+closeFrontage.addEventListener('click', () => hideFrontage({ restoreFocus: true }));
 
 function renderPanel() {
   workspace.classList.toggle('plan-open', panelOpen);
@@ -382,7 +441,8 @@ function updateSummary() {
   const unit = selectedUnit;
   $('#sheet-selection').textContent = unit ? 'Unidade ' + unit.id + ' · ' + formatArea(unit.area) : '11º pavimento';
   $('#floor-status').textContent = simulating ? 'Arraste para olhar ao redor'
-    : activeView === 'aerial' ? 'Selecione um ponto para ver a localização'
+    : walking ? `Percurso a pé · cerca de ${walkMetres} m`
+    : activeView === 'aerial' ? (unit ? `Unidade ${unit.id} selecionada` : 'Selecione um ponto para ver a localização')
     : unit ? 'Unidade ' + unit.id + ' · ' + unit.wing
     : 'Arraste para girar · Selecione uma unidade ou o 11º pavimento';
   visitBar.hidden = activeView !== 'aerial' || simulating || !model;
@@ -391,6 +451,10 @@ function updateSummary() {
   $('#neighbourhood-presets').hidden = visitBar.hidden;
   returnUnit.hidden = !unit;
   returnUnit.textContent = unit ? 'Voltar à ' + unit.id : '';
+  $('#scene-unit').hidden = !unit || activeView !== 'model' || simulating || !model;
+  $('#scene-unit-name').textContent = unit?.id || '';
+  $('#scene-unit-view').hidden = unit?.id !== '1108';
+  unitsDrawer.lastElementChild.textContent = unit ? `${unit.id} · ${formatArea(unit.area)}` : '11º pavimento';
 }
 
 function setSatelliteOnly(enabled) {
@@ -406,6 +470,20 @@ function setSatelliteOnly(enabled) {
 }
 
 satelliteToggle.addEventListener('click', () => setSatelliteOnly(!satelliteOnly));
+function setWalk(enabled) {
+  walking = enabled;
+  closeLandmark();
+  walkToggle.setAttribute('aria-pressed', String(enabled));
+  walkCard.hidden = !enabled;
+  model?.showWalk(enabled);
+  if (enabled) {
+    model?.changeView('walk');
+    if (mediaSmall.matches) setSheetExpanded(false);
+    $('.site-header').scrollIntoView({ block: 'start' });
+  } else if (activeView === 'aerial') model?.changeView('aerial');
+  updateSummary();
+}
+walkToggle.addEventListener('click', () => setWalk(!walking));
 lightControls.hidden = !model;
 for (const button of lightButtons) button.addEventListener('click', () => {
   const light = button.dataset.light;
@@ -416,13 +494,14 @@ for (const button of lightButtons) button.addEventListener('click', () => {
 for (const button of balconyButtons) button.addEventListener('click', () => model?.lookFromBalcony(button.dataset.balconyView));
 
 function openLandmark(id, control) {
-  const { title, text, location, photo } = landmarks[id];
+  const { title, text, location, photo, streetView } = landmarks[id];
   selectedLandmark = id;
   lastLandmarkControl = control;
   $('#visit-title').textContent = title;
   $('#visit-description').textContent = text;
   $('#visit-map').href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(location);
-  visitStreet.hidden = id !== 'entrance';
+  visitStreet.hidden = !streetView;
+  if (streetView) visitStreet.href = streetView;
   const visitPhoto = $('#visit-photo');
   visitPhoto.hidden = !photo;
   if (photo) {
@@ -447,9 +526,10 @@ function setSheetExpanded(expanded) {
   workspace.classList.toggle('sheet-collapsed', !expanded);
   sheetContent.inert = !expanded;
   panelToggle.setAttribute('aria-expanded', String(expanded));
-  const label = expanded ? 'Recolher painel' : 'Abrir painel';
+  const label = expanded ? 'Recolher unidades' : 'Abrir unidades';
   panelToggle.setAttribute('aria-label', label);
   panelToggle.querySelector('.panel-toggle-full').textContent = label;
+  unitsDrawer.setAttribute('aria-expanded', String(expanded));
   sheetToggle.setAttribute('aria-expanded', String(expanded));
   sheetToggle.textContent = expanded ? 'Recolher' : 'Abrir painel';
   floorChip.setAttribute('aria-expanded', String(expanded && panelOpen && activePanel === 'plan'));
@@ -458,19 +538,27 @@ function setSheetExpanded(expanded) {
 function closePlan() {
   panelOpen = false;
   renderPanel();
-  setSheetExpanded(true);
+  setSheetExpanded(!mediaSmall.matches);
   syncUrl();
   (activeView === 'aerial' ? pin : floorChip).focus({ preventScroll: true });
 }
 
-for (const toggle of [panelToggle, sheetToggle]) {
-  toggle.addEventListener('click', () => setSheetExpanded(toggle.getAttribute('aria-expanded') !== 'true'));
+for (const toggle of [panelToggle, sheetToggle, unitsDrawer]) {
+  toggle.addEventListener('click', () => {
+    const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+    setSheetExpanded(expanded);
+    if (toggle === unitsDrawer && expanded && panelOpen) {
+      panelTabs.find(button => button.dataset.panel === activePanel).focus({ preventScroll: true });
+    }
+    if (toggle === sheetToggle && !expanded) unitsDrawer.focus({ preventScroll: true });
+  });
 }
 floorChip.addEventListener('click', () => openPanel('plan', { focus: true }));
 $('#close-plan').addEventListener('click', closePlan);
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open]')) return;
   if (selectedLandmark) closeLandmark(true);
+  else if (!frontageView.hidden) hideFrontage({ restoreFocus: true });
   else if (simulating) setSimulation(false, true);
   else if (panelOpen) closePlan();
 });
@@ -520,11 +608,18 @@ function unitPlanLink(unit, label) {
 }
 
 $('#unit-list').innerHTML = units.map(unit => `
-  <button type="button" class="unit-card" data-unit="${unit.id}" aria-pressed="false" aria-controls="unit-detail">
-    <span class="unit-number">${unit.id}</span>
-    <span class="unit-subtitle">${unit.wing}</span>
-    <span class="unit-card-area">${formatArea(unit.area)}</span>
-  </button>`).join('');
+  <div class="unit-option">
+    <button type="button" class="unit-card" data-unit="${unit.id}" aria-pressed="false" aria-controls="unit-detail">
+      <span class="unit-number">${unit.id}</span>
+      <span class="unit-subtitle">${unit.wing}</span>
+      <span class="unit-card-area">${formatArea(unit.area)}</span>
+      <canvas class="unit-card-plan" width="208" height="244" data-plan-drawing="${unit.id}" aria-hidden="true"></canvas>
+    </button>
+    <div class="unit-card-actions">
+      <button type="button" data-open-unit-plan="${unit.id}" aria-label="Abrir planta da unidade ${unit.id}">Planta</button>
+      ${unit.id === '1108' ? '<button type="button" data-open-unit-view="1108">Vista simulada</button>' : ''}
+    </div>
+  </div>`).join('');
 unitSwitcher.innerHTML = '<span>Unidade</span>' + units.map(unit =>
   '<button type="button" data-switch-unit="' + unit.id + '" aria-pressed="false">' + unit.id + '</button>').join('');
 for (const button of unitSwitcher.querySelectorAll('button')) {
@@ -536,6 +631,7 @@ for (const button of unitSwitcher.querySelectorAll('button')) {
 function selectUnit(id, { rotate = true, focus = false, panel = 'details' } = {}) {
   const unit = units.find(item => item.id === id);
   if (!unit) return;
+  if (!frontageView.hidden) hideFrontage();
   if (simulating) setSimulation(false);
   selectedUnit = unit;
   renderUnit();
@@ -634,6 +730,18 @@ function showUnitOnBuilding(id) {
   if (mediaSmall.matches) setSheetExpanded(false);
   canvas.focus({ preventScroll: true });
 }
+
+for (const button of $$('[data-open-unit-plan]')) {
+  button.addEventListener('click', () => selectUnit(button.dataset.openUnitPlan, { focus: true, panel: 'plan' }));
+}
+const unitViewButton = $('[data-open-unit-view]');
+unitViewButton.disabled = !model;
+unitViewButton.addEventListener('click', () => {
+  selectUnit(unitViewButton.dataset.openUnitView);
+  setSimulation(true, true);
+});
+$('[data-unit-action="plan"]').addEventListener('click', () => openPanel('plan', { focus: true }));
+$('[data-unit-action="view"]').addEventListener('click', () => setSimulation(true, true));
 
 function focusUnitInScene(unit, rotate) {
   if (rotate && activeView === 'aerial') setView('model', { updateUrl: false });
@@ -958,7 +1066,14 @@ for (const button of $$('[data-view]')) {
   button.addEventListener('click', () => setView(button.dataset.view));
 }
 for (const button of $$('[data-unit]')) {
-  button.addEventListener('click', () => selectUnit(button.dataset.unit, { focus: true }));
+  button.addEventListener('click', () => {
+    const cardOnMobile = button.classList.contains('unit-card') && mediaSmall.matches && Boolean(model);
+    selectUnit(button.dataset.unit, { focus: !cardOnMobile });
+    if (cardOnMobile) {
+      setSheetExpanded(false);
+      canvas.focus({ preventScroll: true });
+    }
+  });
 }
 for (const button of $$('[data-camera]')) {
   button.addEventListener('click', () => model?.changeView(button.dataset.camera));
@@ -1034,7 +1149,7 @@ function restoreRoute(initial = false) {
   } else if (!initial) {
     panelOpen = false;
     renderPanel();
-    setSheetExpanded(true);
+    setSheetExpanded(!mediaSmall.matches);
     model?.showUnit(null);
     setView('model', { updateUrl: false });
   }
@@ -1064,4 +1179,6 @@ async function copyText(value, status, { label, message, multiline = false }) {
 $('#copy-panel-compare').addEventListener('click', () => copyLink(comparisonLink(), $('#panel-share-status')));
 $('#copy-compare').addEventListener('click', () => copyLink(comparisonLink(), $('#compare-share-status')));
 window.addEventListener('popstate', () => restoreRoute());
+setSheetExpanded(!mediaSmall.matches);
+unitsDrawer.hidden = false;
 restoreRoute(true);

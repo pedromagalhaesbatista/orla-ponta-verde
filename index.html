@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=five-11">
-  <script src="building.js?v=five-11" defer></script>
-  <script src="app.js?v=five-11" defer></script>
+  <link rel="stylesheet" href="style.css?v=five-12">
+  <script src="building.js?v=five-12" defer></script>
+  <script src="app.js?v=five-12" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -33,24 +33,34 @@
           <div class="viewer-links">
             <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=Edif%C3%ADcio%20Five%20Flex%20Life%2C%20Avenida%20Silvio%20Carlos%20Viana%201811%2C%20Macei%C3%B3" target="_blank" rel="noopener">Mapa <span aria-hidden="true">↗</span></a>
             <button type="button" class="panel-button" data-open-photo="panorama" aria-haspopup="dialog" aria-label="Abrir fotos de Ponta Verde">Fotos</button>
-            <button type="button" class="panel-button" id="panel-toggle" aria-controls="sheet-content" aria-expanded="true" aria-label="Recolher painel"><span class="panel-toggle-full">Recolher painel</span><span class="panel-toggle-short" aria-hidden="true">Painel</span></button>
+            <button type="button" class="panel-button" id="panel-toggle" aria-controls="sheet-content" aria-expanded="true" aria-label="Recolher unidades"><span class="panel-toggle-full">Recolher unidades</span><span class="panel-toggle-short" aria-hidden="true">Unidades</span></button>
           </div>
         </div>
 
         <div id="model-stage" class="model-stage">
           <img id="satellite-ground" class="satellite-ground" src="aerial/ponta-verde-cbers.webp" width="1152" height="1152" alt="">
           <canvas id="building-canvas" tabindex="0" aria-label="Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde" aria-describedby="model-instructions"></canvas>
+          <section class="frontage-view" id="frontage-view" aria-labelledby="frontage-title" hidden>
+            <div class="frontage-bar">
+              <div><strong id="frontage-title">Five Flex Life em construção</strong><span>Street View · Abril de 2026</span></div>
+              <button type="button" id="close-frontage">Voltar à maquete</button>
+            </div>
+            <iframe id="frontage-frame" title="Panorama ao nível da rua do Five Flex Life em construção" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+            <a id="frontage-link" target="_blank" rel="noopener">Abrir no Google Maps ↗</a>
+          </section>
           <button type="button" class="site-pin" id="site-pin" aria-label="Aproximar de Five Flex Life" hidden>Five Flex Life</button>
+          <span class="site-pin tower-name" id="tower-name" aria-hidden="true" hidden>Five Flex Life</span>
           <div class="compass" id="compass" role="img" aria-label="Rumo da câmera: norte" hidden>
             <span class="compass-dial" aria-hidden="true"><b>N</b><i></i></span>
             <span id="camera-heading" aria-hidden="true">N</span>
           </div>
-          <p id="model-instructions" class="sr-only">Arraste para girar. No teclado, use as setas para girar e mais ou menos para aproximar ou afastar. Em Entorno, Vista de cima enquadra a quadra com o norte para cima. O botão Five Flex Life aproxima o edifício. Selecione 1103 ou 1108 na fachada. O botão 11º pavimento abre a planta.</p>
+          <p id="model-instructions" class="sr-only">Arraste para girar. No teclado, use as setas para girar e mais ou menos para aproximar ou afastar. Em Entorno, Vista de cima enquadra a quadra com o norte para cima e Entrada → Praia mostra o percurso a pé. O botão Five Flex Life aproxima o edifício. Selecione 1103 ou 1108 na fachada. O botão 11º pavimento abre a planta.</p>
           <p class="model-fallback" id="model-fallback" hidden>Maquete indisponível. Selecione Planta para explorar o 11º pavimento.</p>
           <span class="scene-landmark" id="beach-label" hidden>Praia de Ponta Verde</span>
           <span class="scene-landmark" id="avenue-label" hidden>Av. Sílvio Carlos Viana</span>
           <div id="visit-markers" hidden>
             <button type="button" class="scene-landmark visit-marker" data-landmark="entrance" aria-controls="visit-card" aria-pressed="false" hidden>Entrada</button>
+            <button type="button" class="scene-landmark visit-marker" data-landmark="crossing" aria-controls="visit-card" aria-pressed="false" hidden>Travessia</button>
             <button type="button" class="scene-landmark visit-marker" data-landmark="promenade" aria-controls="visit-card" aria-pressed="false" hidden>Calçadão</button>
             <button type="button" class="scene-landmark visit-marker" data-landmark="beach" aria-controls="visit-card" aria-pressed="false" hidden>Acesso à praia</button>
           </div>
@@ -66,6 +76,16 @@
               <button type="button" class="text-button" id="visit-photo" data-open-photo="praia" aria-haspopup="dialog" hidden>Ver foto da praia</button>
             </div>
           </section>
+          <section class="walk-card" id="walk-card" aria-labelledby="walk-title" hidden>
+            <h2 id="walk-title">Da entrada à praia</h2>
+            <p id="walk-distance"></p>
+            <ol aria-label="Paradas do percurso">
+              <li><button type="button" data-landmark="entrance" aria-controls="visit-card" aria-pressed="false">Entrada</button></li>
+              <li><button type="button" data-landmark="crossing" aria-controls="visit-card" aria-pressed="false">Travessia</button></li>
+              <li><button type="button" data-landmark="promenade" aria-controls="visit-card" aria-pressed="false">Calçadão</button></li>
+              <li><button type="button" data-landmark="beach" aria-controls="visit-card" aria-pressed="false">Praia</button></li>
+            </ol>
+          </section>
           <button type="button" class="unit-pin" data-unit-pin="1103" aria-label="Selecionar unidade 1103 na fachada" aria-pressed="false" hidden>1103</button>
           <button type="button" class="unit-pin" data-unit-pin="1108" aria-label="Selecionar unidade 1108 na fachada" aria-pressed="false" hidden>1108</button>
           <div id="sim-view" class="sim-view" hidden>
@@ -76,7 +96,7 @@
               <div>
                 <strong>Varanda da 1108</strong>
                 <span>Posição e direção da câmera</span>
-                <button type="button" class="text-button" data-open-photo="panorama" aria-haspopup="dialog">Ver panorama da praia</button>
+                <button type="button" class="text-button" data-open-photo="panorama" aria-haspopup="dialog">Panorama ao nível da praia</button>
               </div>
             </div>
             <div class="balcony-views" role="group" aria-label="Direção da vista na varanda">
@@ -97,7 +117,12 @@
               <button type="button" data-neighbourhood-preset="aerial" aria-pressed="false">Vista oblíqua</button>
               <button type="button" data-neighbourhood-preset="site-plan" aria-pressed="false">Vista de cima</button>
             </div>
-            <a class="angle-button" id="site-entrance" data-street-view target="_blank" rel="noopener" hidden>Av. Sílvio Carlos Viana · Street View ↗</a>
+            <button type="button" class="angle-button" id="site-entrance" data-open-frontage aria-controls="frontage-view" hidden>Ver fachada no Street View</button>
+            <div class="scene-unit" id="scene-unit" hidden>
+              <strong id="scene-unit-name"></strong>
+              <button type="button" data-unit-action="plan" aria-controls="plan-stage">Planta</button>
+              <button type="button" data-unit-action="view" id="scene-unit-view">Vista simulada</button>
+            </div>
             <button type="button" class="angle-button" id="rotate-to-unit" hidden>Girar até a unidade <span aria-hidden="true">↻</span></button>
           </div>
           <button type="button" class="floor-chip" aria-controls="plan-stage" aria-expanded="false" aria-label="Abrir planta do 11º pavimento"><b>11º</b><span class="floor-chip-label">Pavimento</span><span aria-hidden="true">↗</span></button>
@@ -109,6 +134,7 @@
             <button type="button" data-landmark="promenade" aria-controls="visit-card" aria-pressed="false">Calçadão</button>
             <button type="button" data-landmark="beach" aria-controls="visit-card" aria-pressed="false">Acesso à praia</button>
           </div>
+          <button type="button" id="walk-toggle" aria-controls="walk-card" aria-pressed="false">Entrada → Praia</button>
           <button type="button" id="satellite-toggle" aria-pressed="false" aria-label="Ver imagem de satélite sem a maquete">Só satélite</button>
           <button type="button" id="return-unit" hidden></button>
         </div>
@@ -132,6 +158,9 @@
       </section>
 
       <aside class="residences" id="unit-panel" aria-labelledby="units-title">
+          <button class="units-drawer" id="units-drawer" type="button" aria-controls="sheet-content" aria-expanded="false" hidden>
+          <span class="drawer-grip" aria-hidden="true"></span><strong>Unidades</strong><span>11º pavimento</span>
+        </button>
         <div class="sheet-header" id="sheet-header" hidden>
           <div>
             <span id="sheet-selection">11º pavimento</span>
@@ -208,6 +237,7 @@
       <div class="gallery-heading">
         <h2 id="gallery-title">A orla em fotografias</h2>
         <div class="gallery-links">
+          <button type="button" class="text-button" data-open-frontage aria-controls="frontage-view">Five em construção · Street View</button>
           <a data-street-view target="_blank" rel="noopener">Avenida ao nível da rua ↗</a>
           <a href="https://www.youtube.com/watch?v=blCQvmzeiV0" target="_blank" rel="noopener">Sobrevoo de Ponta Verde ↗</a>
           <a href="https://coutinhoincorporacoes.com.br/empreendimentos/eef93708-9dc0-45ea-bf3e-68d5dec86f73" target="_blank" rel="noopener">Perspectivas do Five · Coutinho ↗</a>
@@ -230,6 +260,9 @@
         <li><a href="https://coutinhoincorporacoes.com.br/empreendimentos/eef93708-9dc0-45ea-bf3e-68d5dec86f73" target="_blank" rel="noopener">Coutinho Incorporações ↗</a></li>
         <li><a href="https://www.repositorio.ufal.br/jspui/handle/123456789/15662" target="_blank" rel="noopener">Implantação · UFAL, ficha 27 ↗</a></li>
         <li><a data-street-view target="_blank" rel="noopener">Av. Sílvio Carlos Viana · Google Street View, julho de 2026 ↗</a></li>
+        <li><a data-frontage-link target="_blank" rel="noopener">Five em construção · Google Street View, abril de 2026 ↗</a></li>
+        <li><a href="https://www.openstreetmap.org/way/260818623" target="_blank" rel="noopener">Travessia mapeada · OpenStreetMap ↗</a></li>
+        <li><a data-crossing-view target="_blank" rel="noopener">Faixa de pedestres · Street View, julho de 2026 ↗</a></li>
         <li><a href="https://www.hiltonimoveis.com.br/empreendimentos/five-ponta-verde" target="_blank" rel="noopener">Hilton Imóveis ↗</a></li>
         <li><a href="https://maceio.al.gov.br/noticias/dmtt/prefeitura-leva-acao-educativa-a-orla-aberta-sobre-o-uso-de-faixas-na-ponta-verde" target="_blank" rel="noopener">Calçadão e Orla Aberta · Prefeitura ↗</a></li>
         <li><a href="https://www.lopana.com.br/contato/" target="_blank" rel="noopener">Referência de acesso à praia · Lopana ↗</a></li>

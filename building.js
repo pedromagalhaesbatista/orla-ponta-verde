@@ -1,11 +1,12 @@
 (() => {
-  const initialView = { yaw: -.31, pitch: .49, zoom: .60, target: 4.55 };
+  const initialView = { yaw: -.24, pitch: .75, zoom: .46, target: 2.8, frameOffset: .08 };
   const unitView = { yaw: -.31, pitch: .53, zoom: .90, target: 5.5 };
-  const facadeView = { yaw: .24, pitch: .38, zoom: .88, target: 5.1, frameOffset: .20 };
+  const facadeView = { yaw: .50, pitch: .38, zoom: .88, target: 5.1, frameOffset: .20 };
   const entranceView = { yaw: .34, pitch: .38, zoom: 1.27, target: 2.7 };
   const rearView = { yaw: -1.54, pitch: .72, zoom: .82, target: 5.4 };
   const aerialView = { yaw: -.25, pitch: 1.10, zoom: .25 };
   const sitePlanView = { yaw: 0, pitch: Math.PI / 2, zoom: .43 };
+  const walkView = { yaw: 0, pitch: Math.PI / 2, zoom: .23, frameOffset: .08, frameOffsetX: .075 };
   const towerFootprint = [[-4.48,-1.08],[-3.16,-1.08],[-3.16,-5.45],[-1.48,-5.45],
     [-1.48,-1.08],[4.62,-1.08],[4.62,2.56],[-4.48,2.56]];
   const floorHeight = floor => 1.62 + (floor - 1) * 1.04;
@@ -266,7 +267,7 @@
     return panels;
   }
 
-  function createBuilding(canvas, { availableFloors, ground, visitPoints, onSelect, onHover, onViewChange, onPosition }) {
+  function createBuilding(canvas, { availableFloors, ground, visitPoints, walkPoints, onSelect, onHover, onViewChange, onPosition }) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     const tower = buildScene();
@@ -280,6 +281,7 @@
     const camera = cameraView(initialView);
     let preset = 'orla';
     let outlineVisible = false;
+    let walkVisible = false;
     let satelliteOnly = false;
     let width = 0;
     let height = 0;
@@ -298,7 +300,7 @@
       if (flight) {
         const progress = Math.min(1, (now - flight.start) / 560);
         const eased = progress * progress * (3 - 2 * progress);
-        for (const key of ['yaw', 'pitch', 'zoom', 'target', 'frameOffset']) {
+        for (const key of ['yaw', 'pitch', 'zoom', 'target', 'frameOffset', 'frameOffsetX']) {
           camera[key] = flight.from[key] + (flight.to[key] - flight.from[key]) * eased;
         }
         if (progress === 1) {
@@ -318,7 +320,7 @@
         : Math.max(5, Math.min((width - 32) / 12.3, (height - 95) / 16.5));
       const distance = fieldOfView / camera.zoom;
       const target = camera.target;
-      const centreX = width * .50;
+      const centreX = width * (.50 + (simulation ? 0 : camera.frameOffsetX));
       const centreY = simulation ? height * .47 : height * (.37 - .10 * camera.zoom + camera.frameOffset);
 
       function homogeneous(x, y, z) {
@@ -386,6 +388,7 @@
       }
       onPosition({
         footprint: project([0, -.21, 1.3]),
+        rooftop: project([0, floorHeight(13) + .29, .40]),
         floor: project(sinYaw < -.75
           ? [-3.13, floor11 + .56, -4.5]
           : cosYaw < -.30
@@ -406,6 +409,7 @@
       projectedFaces = simulation ? [] : faces;
       if (satelliteOnly && !simulation) {
         drawFootprint();
+        drawWalk();
         return;
       }
 
@@ -616,6 +620,32 @@
         }
       }
       drawFootprint();
+      drawWalk();
+      function drawWalk() {
+        if (!walkVisible || simulation) return;
+        const projected = walkPoints.map(([x, z]) => project([x, -.14, z]));
+        ctx.save();
+        ctx.beginPath();
+        let penDown = false;
+        for (const point of projected) {
+          if (point.w <= .004) {
+            penDown = false;
+          } else {
+            if (penDown) ctx.lineTo(point.x, point.y);
+            else ctx.moveTo(point.x, point.y);
+            penDown = true;
+          }
+        }
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 7;
+        ctx.strokeStyle = '#103c37';
+        ctx.stroke();
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = '#79f1e3';
+        ctx.stroke();
+        ctx.restore();
+      }
       function drawFootprint() {
         if (!outlineVisible || simulation) return;
         trace(ctx, towerFootprint.map(([x, z]) => project([x, -.10, z])));
@@ -669,7 +699,7 @@
     }
 
     function cameraView(view) {
-      return { frameOffset: 0, ...view, target: view.target ?? clamp((view.zoom - .13) * 6.7, .5, 5.25) };
+      return { frameOffset: 0, frameOffsetX: 0, ...view, target: view.target ?? clamp((view.zoom - .13) * 6.7, .5, 5.25) };
     }
 
     function moveTo(view) {
@@ -709,6 +739,7 @@
         case 'out': setZoom(camera.zoom / 1.24); break;
         case 'aerial': moveTo(aerialView); return;
         case 'site-plan': moveTo(sitePlanView); return;
+        case 'walk': moveTo(walkView); return;
         case 'facade': moveTo(facadeView); return;
         case 'entrance': moveTo(entranceView); return;
         case 'rear': moveTo(rearView); return;
@@ -822,6 +853,10 @@
       },
       showFootprint(visible) {
         outlineVisible = visible;
+        redraw();
+      },
+      showWalk(visible) {
+        walkVisible = visible;
         redraw();
       },
       showSatelliteOnly(enabled) {
