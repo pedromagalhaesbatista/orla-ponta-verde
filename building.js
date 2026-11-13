@@ -4,10 +4,8 @@
   const rearView = { yaw: -1.78, pitch: .78, zoom: .82 };
   const floorHeight = floor => 1.62 + (floor - 1) * 1.04;
   const floor11 = floorHeight(11);
-  const unitPositions = {
-    '1103': { x: -3.12, z: -1.48, angle: rearView },
-    '1108': { x: -1.03, z: 2.30, angle: closeView }
-  };
+  const balconyEye = [-1.03, (floor11 + .60) * .69, 2.38];
+  const unitAngles = { '1103': rearView, '1108': closeView };
   const minZoom = .095;
   const maxZoom = 1.45;
   const fieldOfView = 36;
@@ -196,6 +194,7 @@
     let projectedFaces = [];
     let selected = null;
     let hovered = null;
+    let simulation = null;
     let flight = null;
 
     function draw(now) {
@@ -216,15 +215,32 @@
       }
 
       ctx.clearRect(0, 0, width, height);
-      const sinYaw = Math.sin(camera.yaw), cosYaw = Math.cos(camera.yaw);
-      const sinPitch = Math.sin(camera.pitch), cosPitch = Math.cos(camera.pitch);
-      const scale = Math.max(5, Math.min((width - 32) / 12.3, (height - 95) / 16.5));
+      const yaw = simulation?.yaw ?? camera.yaw;
+      const pitch = simulation?.pitch ?? camera.pitch;
+      const sinYaw = Math.sin(yaw), cosYaw = Math.cos(yaw);
+      const sinPitch = Math.sin(pitch), cosPitch = Math.cos(pitch);
+      const scale = simulation ? Math.min(width, height * 1.8) * .72 / fieldOfView
+        : Math.max(5, Math.min((width - 32) / 12.3, (height - 95) / 16.5));
       const distance = fieldOfView / camera.zoom;
       const target = clamp((camera.zoom - .13) * 8, .5, 5.4);
       const centreX = width * .50;
-      const centreY = height * (.42 - .13 * camera.zoom);
+      const centreY = simulation ? height * .47 : height * (.42 - .13 * camera.zoom);
 
       function homogeneous(x, y, z) {
+        if (simulation) {
+          const [eyeX, eyeY, eyeZ] = balconyEye;
+          const dx = x - eyeX, dz = z - eyeZ;
+          const ahead = dx * sinYaw + dz * cosYaw;
+          const vertical = y * .69 - eyeY;
+          const depth = ahead * cosPitch - vertical * sinPitch;
+          const w = depth / fieldOfView;
+          return {
+            x: centreX * w + (dx * cosYaw - dz * sinYaw) * scale,
+            y: centreY * w - (vertical * cosPitch + ahead * sinPitch) * scale,
+            w,
+            depth: -depth
+          };
+        }
         const ahead = x * sinYaw + z * cosYaw;
         const vertical = y * .69 - target;
         const depth = ahead * cosPitch + vertical * sinPitch;
@@ -261,7 +277,18 @@
         element.style.transform = 'matrix3d(' + matrix.join(',') + ')';
       }
 
-      const unit = unitPositions[selectedUnit];
+      const faces = cameraFaces();
+      const unitPoints = {};
+      if (!simulation) {
+        for (const { surface, points } of faces) {
+          if (!surface.unit) continue;
+          const x = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+          const y = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+          if (x < 8 || x > width - 8 || y < 8 || y > height - 8) continue;
+          const hit = pickFromFaces(faces, x, y);
+          if (hit?.unit === surface.unit) unitPoints[surface.unit] = { x, y };
+        }
+      }
       onPosition({
         tower: project([0, 16.2, 0]),
         floor: project(sinYaw < -.75
@@ -269,8 +296,7 @@
           : cosYaw < -.30
             ? [-4.36, floor11 + .56, -.84]
             : [4.36, floor11 + .56, 2.31]),
-        unit: unit && (selectedUnit === '1103' ? sinYaw < -.18 : cosYaw > .20)
-          ? project([unit.x, floor11 + .62, unit.z]) : null,
+        units: unitPoints,
         beach: project([25, -.24, 24]),
         avenue: project([-17, -.24, 13]),
         width,
@@ -279,10 +305,12 @@
 
       function cameraFaces() {
         const visible = [];
-        for (const surface of [...neighbours, ...tower]) {
-          if (surface.unit && surface.unit !== selectedUnit) continue;
+        for (const surface of simulation ? neighbours : [...neighbours, ...tower]) {
           const [nx, ny, nz] = surface.normal;
-          if (nx * sinYaw * cosPitch + ny * sinPitch + nz * cosYaw * cosPitch <= 0) continue;
+          if (simulation) {
+            const [x, y, z] = surface.points[0];
+            if (nx * (balconyEye[0] - x) + ny * (balconyEye[1] - y * .69) + nz * (balconyEye[2] - z) <= 0) continue;
+          } else if (nx * sinYaw * cosPitch + ny * sinPitch + nz * cosYaw * cosPitch <= 0) continue;
           const points = surface.points.map(project);
           if (points.some(point => point.w <= 0)) continue;
           const depth = points.reduce((sum, point) => sum + point.depth, 0) / points.length;
@@ -290,7 +318,7 @@
         }
         return visible.sort((a, b) => a.depth - b.depth);
       }
-      const streetOpacity = clamp((camera.zoom - .33) / .35, 0, .82);
+      const streetOpacity = simulation ? .74 : clamp((camera.zoom - .33) / .35, 0, .82);
       if (streetOpacity > 0) {
         const streetStyles = {
           primary: { colour: '#5d6060', edge: '#a29b8e', width: 1.46, lanes: true },
@@ -337,7 +365,7 @@
 
       const towerGround = [[-4.48,-1.08],[4.62,-1.08],[4.62,2.56],[-4.48,2.56]];
       const towerWing = [[-3.16,-5.45],[-1.48,-5.45],[-1.48,-1.08],[-3.16,-1.08]];
-      for (const outline of [...contactOutlines, towerGround, towerWing]) {
+      for (const outline of simulation ? contactOutlines : [...contactOutlines, towerGround, towerWing]) {
         const shadow = outline.map(([x,z]) => project([x+.16,-.23,z-.16]));
         if (shadow.some(point => point.w <= 0)) continue;
         trace(ctx, shadow);
@@ -348,12 +376,24 @@
       }
       ctx.shadowBlur = 0;
 
-      projectedFaces = cameraFaces();
-      for (const { surface, points } of projectedFaces) {
+      projectedFaces = simulation ? [] : faces;
+      for (const { surface, points } of faces) {
+        if (surface.unit) {
+          const active = surface.unit === selectedUnit;
+          const highlighted = surface.unit === hovered?.unit;
+          trace(ctx, points);
+          ctx.fillStyle = active ? '#d8f0a1df' : highlighted ? '#d8f0a1ab' : '#d8f0a12e';
+          ctx.fill();
+          if (active || highlighted) {
+            ctx.strokeStyle = '#eaffbe';
+            ctx.lineWidth = 1.35;
+            ctx.stroke();
+          }
+          continue;
+        }
         trace(ctx, points);
-        ctx.fillStyle = surface.unit ? '#d8f0a1e6' : surface.color;
+        ctx.fillStyle = surface.color;
         ctx.fill();
-        if (surface.unit) continue;
         const [nx, ny, nz] = surface.normal;
         const direction = Math.hypot(nx, ny, nz) || 1;
         const light = clamp((-.50 * nx + .84 * ny + .42 * nz) / direction, -.7, 1);
@@ -380,7 +420,7 @@
         if (!floor) continue;
         let tint;
         if (floor === selected) tint = availableFloors.has(floor) ? (selectedUnit ? '#d6f29840' : '#d6f298b5') : '#b5d9caa0';
-        else if (floor === hovered) tint = '#c2f5d294';
+        else if (floor === hovered?.floor && !hovered.unit) tint = '#c2f5d294';
         else if (!selected && availableFloors.has(floor)) tint = '#b8f2cc29';
         if (tint) {
           trace(ctx, points);
@@ -406,21 +446,22 @@
       redraw();
     }
 
-    function pick(x, y) {
-      for (let i = projectedFaces.length - 1; i >= 0; i--) {
-        const face = projectedFaces[i];
-        if (contains(face.points, x, y)) return face.surface.floor || null;
+    function pickFromFaces(faces, x, y) {
+      for (let i = faces.length - 1; i >= 0; i--) {
+        const { surface, points } = faces[i];
+        if (contains(points, x, y)) return surface.floor ? surface : null;
       }
       return null;
     }
 
-    function setHover(floor, x, y) {
-      if (hovered !== floor) {
-        hovered = floor;
-        canvas.classList.toggle('over-floor', Boolean(floor));
+    function setHover(hit, x, y) {
+      const next = hit ? { floor: hit.floor, unit: hit.unit || null } : null;
+      if (hovered?.floor !== next?.floor || hovered?.unit !== next?.unit) {
+        hovered = next;
+        canvas.classList.toggle('over-floor', Boolean(next));
         redraw();
       }
-      onHover(floor, x, y);
+      onHover(next, x, y);
     }
 
     function reportZoom() {
@@ -441,6 +482,17 @@
     }
 
     function changeView(action) {
+      if (simulation) {
+        switch (action) {
+          case 'left': simulation.yaw = clamp(simulation.yaw - .24, -1.12, 1.12); break;
+          case 'right': simulation.yaw = clamp(simulation.yaw + .24, -1.12, 1.12); break;
+          case 'up': simulation.pitch = clamp(simulation.pitch - .08, -.08, .58); break;
+          case 'down': simulation.pitch = clamp(simulation.pitch + .08, -.08, .58); break;
+          case 'reset': simulation = { yaw: 0, pitch: .29 }; break;
+        }
+        redraw();
+        return;
+      }
       flight = null;
       switch (action) {
         case 'left': camera.yaw -= Math.PI / 8; break;
@@ -487,11 +539,16 @@
       const current = coordinates(event);
       const previous = pointers.get(event.pointerId);
       if (!previous) {
-        if (!pointers.size && event.pointerType === 'mouse') setHover(pick(current.x, current.y), current.x, current.y);
+        if (!pointers.size && event.pointerType === 'mouse') setHover(pickFromFaces(projectedFaces, current.x, current.y), current.x, current.y);
         return;
       }
       pointers.set(event.pointerId, current);
-      if (pointers.size === 2) {
+      if (simulation) {
+        if (!dragged && distance(current, start) < 5) return;
+        dragged = true;
+        simulation.yaw = clamp(simulation.yaw - (current.x - previous.x) * .007, -1.12, 1.12);
+        simulation.pitch = clamp(simulation.pitch - (current.y - previous.y) * .004, -.08, .58);
+      } else if (pointers.size === 2) {
         const other = [...pointers.entries()].find(([id]) => id !== event.pointerId)[1];
         const previousGap = distance(previous, other);
         if (previousGap > 1) camera.zoom = clamp(camera.zoom * distance(current, other) / previousGap, minZoom, maxZoom);
@@ -512,8 +569,8 @@
         canvas.classList.remove('dragging');
         if (!dragged && event.type === 'pointerup') {
           const { x, y } = coordinates(event);
-          const floor = pick(x, y);
-          if (floor) onSelect(floor);
+          const hit = pickFromFaces(projectedFaces, x, y);
+          if (hit && !simulation) onSelect({ floor: hit.floor, unit: hit.unit });
         }
       }
     }
@@ -535,10 +592,16 @@
     resize();
     return {
       changeView,
-      showUnit(id) {
+      showUnit(id, { rotate = true } = {}) {
         selectedUnit = id;
-        if (id) moveTo(unitPositions[id].angle);
+        if (id && rotate) moveTo(unitAngles[id]);
         else redraw();
+      },
+      simulate(enabled) {
+        flight = null;
+        simulation = enabled ? { yaw: 0, pitch: .29 } : null;
+        setHover(null);
+        redraw();
       },
       setNeighbours(footprints) {
         neighbours = neighbourhoodFaces(footprints);

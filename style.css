@@ -414,3 +414,33 @@ dialog::backdrop { background: #081e1acc; }
   .floor-status { text-align: center; }
   .scene-credit { justify-content: center; }
 }
+
+.unit-pin { pointer-events: auto; min-height: 30px; min-width: 42px; border: 1px solid #a8c380; background: #19382e; color: var(--lime); }
+.unit-pin::after { border-top-color: #19382e; }
+.unit-pin[aria-pressed="true"], .unit-pin:hover { background: var(--lime); color: #193124; }
+.unit-pin[aria-pressed="true"]::after, .unit-pin:hover::after { border-top-color: var(--lime); }
+.unit-tabs { display: flex; gap: 5px; margin: 0 0 12px; border-bottom: 1px solid var(--line); }
+.unit-tabs button { min-height: 37px; border: 0; border-bottom: 2px solid transparent; padding: 4px 8px; background: transparent; font-size: .85rem; }
+.unit-tabs [aria-selected="true"] { border-color: #365b42; color: #214936; font-weight: 700; }
+#details-panel .unit-detail { border-top: 0; padding-top: 0; }
+.text-button { display: inline-block; border: 0; padding: 5px 0; background: transparent; font-size: .83rem; text-decoration: underline; text-underline-offset: .22em; }
+.share-status { display: block; font-size: .8rem; color: var(--muted); }
+.share-status:empty { display: none; }
+.share-status input { width: 100%; min-height: 34px; font: inherit; }
+#compare-panel-summary { font-size: .84rem; color: var(--muted); margin-bottom: 8px; }
+#compare-panel .compare-plan { padding: 6px; }
+#compare-panel .compare-plan p, #compare-panel .compare-plan .plan-link { display: none; }
+#compare-panel .compare-locate { font-size: .69rem; }
+#expand-compare { margin-top: 9px; }
+.sim-start { margin-top: 9px; }
+.sim-view { position: absolute; z-index: 3; inset: 12px 12px auto; display: flex; align-items: start; justify-content: space-between; gap: 8px; pointer-events: none; }
+.sim-view p, .sim-view button { border: 1px solid #638173; border-radius: 7px; background: #0b2421e8; color: #e0e9da; padding: 7px 9px; }
+.sim-view p { display: grid; gap: 2px; }
+.sim-view p span { font-size: .72rem; }
+.sim-view button { pointer-events: auto; font-size: .78rem; white-space: nowrap; }
+.simulating .model-stage { background: linear-gradient(#9fc4c7 0%, #c3d6ca 51%, #276173 82%); }
+.simulating .model-meta, .simulating .floor-chip, .simulating [data-camera="in"], .simulating [data-camera="out"] { display: none; }
+@media (max-width: 800px) {
+  .unit-pin { min-width: 44px; min-height: 36px; }
+  .unit-tabs button { min-height: 42px; }
+}

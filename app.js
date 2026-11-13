@@ -61,7 +61,13 @@ const workspace = $('.workspace');
 const sheetHeader = $('#sheet-header');
 const sheetToggle = $('#sheet-toggle');
 const compareDialog = $('#compare-dialog');
-const unitPin = $('#unit-pin');
+const unitPins = $$('[data-unit-pin]');
+const rotateToUnit = $('#rotate-to-unit');
+const panelTabs = $$('[data-panel]');
+const panels = { plan: planStage, details: $('#details-panel'), compare: $('#compare-panel') };
+const simView = $('#sim-view');
+let activePanel = 'plan';
+let simulating = false;
 const beachLabel = $('#beach-label');
 const avenueLabel = $('#avenue-label');
 const groundImage = $('#satellite-ground');
@@ -79,41 +85,52 @@ const model = window.createBuilding(canvas, {
     originX: -5,
     originZ: 24
   },
-  onPosition({ tower, floor, unit, beach, avenue, width, height }) {
+  onPosition({ tower, floor, units: points, beach, avenue, width, height }) {
     const aerial = activeView === 'aerial';
-    pin.hidden = !aerial;
-    if (aerial) place(pin, tower, 72, width - 72, 96, height - 78);
-    const pinWouldOverlap = unit && width < 530
-      && Math.abs(floor.x + 42 - unit.x) < 70 && Math.abs(floor.y - unit.y) < 35;
-    const anchorFloor = !aerial && !pinWouldOverlap;
+    pin.hidden = !aerial || simulating;
+    if (!pin.hidden) place(pin, tower, 72, width - 72, 96, height - 78);
+    const anchorFloor = !aerial && !simulating && floor.x + 13 < width - 68;
     floorChip.classList.toggle('floor-chip-anchored', anchorFloor);
     if (anchorFloor) place(floorChip, floor, 40, width - 67, 59, height - 41, 13);
     else {
       floorChip.style.left = '';
       floorChip.style.top = '';
     }
-    unitPin.hidden = !unit || aerial;
-    if (!unitPin.hidden) place(unitPin, unit, 26, width - 26, 43, height - 26, 0, -10);
+
+    const placedPins = [];
+    for (const button of [...unitPins].sort((a, b) => Number(b.dataset.unitPin === selectedUnit?.id) - Number(a.dataset.unitPin === selectedUnit?.id))) {
+      const point = points[button.dataset.unitPin];
+      const raised = point && placedPins.some(previous =>
+        Math.abs(previous.x - point.x) < 55 && Math.abs(previous.y - point.y) < 40);
+      button.hidden = !point || aerial || simulating;
+      if (button.hidden) continue;
+      place(button, point, 27, width - 27, 46, height - 20, 0, raised ? -45 : -5);
+      placedPins.push(point);
+    }
+    rotateToUnit.hidden = activeView !== 'plan' || !selectedUnit || Boolean(points[selectedUnit.id]) || simulating;
 
     for (const [label, point] of [[beachLabel, beach], [avenueLabel, avenue]]) {
-      label.hidden = point.x < 65 || point.x > width - 65 || point.y < 80 || point.y > height - 17
+      label.hidden = simulating || point.w <= 0 || point.x < 65 || point.x > width - 65 || point.y < 80 || point.y > height - 17
         || Math.hypot(point.x - tower.x, point.y - tower.y) < 56
         || Math.hypot(point.x - floor.x, point.y - floor.y) < 49;
       if (!label.hidden) place(label, point, 0, width, 0, height);
     }
   },
-  onSelect(floor) {
-    if (floor === '11') {
-      openPlan(true);
-      return;
+  onSelect({ floor, unit }) {
+    if (unit) {
+      selectUnit(unit, { rotate: false, focus: true });
+    } else if (floor === '11') {
+      openPanel('plan', { focus: true, rotate: activeView !== 'plan' });
+    } else {
+      model.select(floor);
+      $('#floor-status').textContent = Number(floor) + 'º pavimento · Planta disponível para o 11º pavimento';
     }
-    model.select(floor);
-    $('#floor-status').textContent = Number(floor) + 'º pavimento · Planta disponível para o 11º pavimento';
   },
-  onHover(floor, x, y) {
-    tooltip.hidden = !floor;
-    if (!floor) return;
-    tooltip.textContent = floor === '11' ? '11º pavimento · Abrir planta' : Number(floor) + 'º pavimento';
+  onHover(hit, x, y) {
+    tooltip.hidden = !hit || simulating;
+    if (tooltip.hidden) return;
+    tooltip.textContent = hit.unit ? 'Unidade ' + hit.unit + ' · ' + formatArea(units.find(unit => unit.id === hit.unit).area)
+      : hit.floor === '11' ? '11º pavimento · Abrir planta' : Number(hit.floor) + 'º pavimento';
     tooltip.style.left = Math.min(Math.max(x + 12, 6), canvas.clientWidth - tooltip.offsetWidth - 6) + 'px';
     tooltip.style.top = Math.max(y - 40, 48) + 'px';
   },
@@ -153,47 +170,72 @@ function place(element, point, minX, maxX, minY, maxY, offsetX = 0, offsetY = 0)
   element.style.top = Math.max(minY, Math.min(maxY, point.y + offsetY)) + 'px';
 }
 
-function setView(view, { focusTab = false, cameraAction } = {}) {
+function setView(view, { cameraAction, updateUrl = true } = {}) {
+  if (simulating && view !== 'plan') setSimulation(false);
   activeView = view;
-  const showPlan = view === 'plan';
-  planStage.hidden = !showPlan;
-  workspace.classList.toggle('plan-open', showPlan);
-  sheetHeader.hidden = !showPlan;
-  if (!showPlan) setSheetExpanded(true);
-  $('#units-title').classList.toggle('sr-only', showPlan);
-  $('.units-intro').hidden = showPlan;
-  $('#unit-list').hidden = showPlan;
-  $('#unit-detail').hidden = !selectedUnit || !showPlan;
-  floorChip.setAttribute('aria-expanded', String(showPlan));
-  floorChip.setAttribute('aria-label', (showPlan ? 'Fechar' : 'Abrir') + ' planta do 11º pavimento');
+  const showPanel = view === 'plan';
+  workspace.classList.toggle('plan-open', showPanel);
+  sheetHeader.hidden = !showPanel;
+  $('#unit-tabs').hidden = !showPanel;
+  $('#units-title').classList.toggle('sr-only', showPanel);
+  $('.units-intro').hidden = showPanel;
+  $('#unit-list').hidden = showPanel;
+  $('#compare-open').hidden = showPanel;
+  for (const name of Object.keys(panels)) panels[name].hidden = !showPanel || name !== activePanel;
+  if (!showPanel) {
+    setSheetExpanded(true);
+    model?.showUnit(null);
+    rotateToUnit.hidden = true;
+  }
+  floorChip.setAttribute('aria-expanded', String(showPanel));
+  floorChip.setAttribute('aria-label', showPanel ? 'Fechar painel de unidades' : 'Abrir planta do 11º pavimento');
   for (const button of $$('.view-switch [data-view]')) {
     button.setAttribute('aria-pressed', String(button.dataset.view === view));
   }
   tooltip.hidden = true;
   model?.select('11');
-  if (!showPlan) model?.showUnit(null);
   if (cameraAction || view !== 'plan') model?.changeView(cameraAction || view);
-  $('#floor-status').textContent = view === 'aerial'
-    ? 'Arraste para girar · Clique no marcador para aproximar'
-    : showPlan ? 'Selecione uma unidade na planta' : 'Arraste para girar · Explore o 11º pavimento';
-  if (focusTab) $('.view-switch [data-view="' + view + '"]').focus({ preventScroll: true });
+  updateSummary();
+  if (updateUrl) syncUrl();
 }
 
-function openPlan(moveFocus) {
-  const wasOpen = activeView === 'plan';
-  setView('plan', { cameraAction: !wasOpen && !selectedUnit ? 'model' : undefined });
-  setSheetExpanded(true);
-  if (selectedUnit) focusUnitInScene(selectedUnit);
-  $('#sheet-selection').textContent = selectedUnit ? 'Unidade ' + selectedUnit.id : '11º pavimento';
-  if (!moveFocus) return;
-  $('#plan-title').focus({ preventScroll: true });
-  if (mediaSmall.matches) $('.site-header').scrollIntoView({ block: 'start' });
+function setPanel(name) {
+  activePanel = name;
+  for (const button of panelTabs) {
+    const active = button.dataset.panel === name;
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
+  }
+  for (const key of Object.keys(panels)) panels[key].hidden = key !== name;
+  $('#panel-share-status').replaceChildren();
+  $('#sheet-content').scrollTop = 0;
+  if (name === 'compare') drawComparisonPlans();
+}
+
+function openPanel(name, { focus = false, rotate = false, expand = true, updateUrl = true } = {}) {
+  if (name === 'details' && !selectedUnit) name = 'plan';
+  if (simulating) setSimulation(false);
+  setPanel(name);
+  setView('plan', { cameraAction: rotate && !selectedUnit ? 'model' : undefined, updateUrl });
+  if (expand) setSheetExpanded(true);
+  if (selectedUnit) focusUnitInScene(selectedUnit, rotate);
+  if (focus) panelTabs.find(button => button.dataset.panel === name).focus({ preventScroll: true });
+  if (focus && mediaSmall.matches) $('.site-header').scrollIntoView({ block: 'start' });
+}
+
+function updateSummary() {
+  const unit = activeView === 'plan' ? selectedUnit : null;
+  $('#sheet-selection').textContent = unit ? 'Unidade ' + unit.id + ' · ' + formatArea(unit.area) : '11º pavimento';
+  $('#floor-status').textContent = simulating ? 'Arraste para olhar ao redor'
+    : activeView === 'aerial' ? 'Arraste para girar · Clique no marcador para aproximar'
+    : unit ? 'Unidade ' + unit.id + ' · ' + unit.wing
+    : 'Arraste para girar · Selecione uma unidade ou o 11º pavimento';
 }
 
 function setSheetExpanded(expanded) {
   workspace.classList.toggle('sheet-collapsed', !expanded);
   sheetToggle.setAttribute('aria-expanded', String(expanded));
-  sheetToggle.textContent = expanded ? 'Recolher' : 'Abrir planta';
+  sheetToggle.textContent = expanded ? 'Recolher' : 'Abrir painel';
 }
 
 function closePlan() {
@@ -202,17 +244,49 @@ function closePlan() {
   floorChip.focus({ preventScroll: true });
 }
 
-sheetToggle.addEventListener('click', () => setSheetExpanded(sheetToggle.getAttribute('aria-expanded') !== 'true'));
+sheetToggle.addEventListener('click', () => {
+  const expand = sheetToggle.getAttribute('aria-expanded') !== 'true';
+  setSheetExpanded(expand);
+  if (expand && activePanel === 'compare') drawComparisonPlans();
+});
 $('#close-plan').addEventListener('click', closePlan);
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && activeView === 'plan' && !compareDialog.open && !event.defaultPrevented) closePlan();
+  if (event.key !== 'Escape' || event.defaultPrevented || compareDialog.open) return;
+  if (simulating) setSimulation(false, true);
+  else if (activeView === 'plan') closePlan();
 });
-mediaSmall.addEventListener('change', () => setSheetExpanded(true));
+mediaSmall.addEventListener('change', () => setSheetExpanded(!simulating));
+
+for (const button of panelTabs) {
+  button.addEventListener('click', () => openPanel(button.dataset.panel));
+  button.addEventListener('keydown', event => {
+    const options = panelTabs.filter(tab => !tab.disabled);
+    const index = options.indexOf(button);
+    const direction = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
+    const next = event.key === 'Home' ? options[0] : event.key === 'End' ? options.at(-1)
+      : direction ? options[(index + direction + options.length) % options.length] : null;
+    if (!next) return;
+    event.preventDefault();
+    openPanel(next.dataset.panel, { focus: true });
+  });
+}
 
 pin.addEventListener('click', () => {
-  setView('model', { focusTab: true });
+  setView('model');
   updateAngleButton(false);
+  $('.view-switch [data-view="model"]').focus({ preventScroll: true });
 });
+for (const button of unitPins) {
+  button.addEventListener('click', () => selectUnit(button.dataset.unitPin, { rotate: false, focus: true }));
+}
+rotateToUnit.addEventListener('click', () => {
+  if (!selectedUnit) return;
+  focusUnitInScene(selectedUnit, true);
+  if (mediaSmall.matches) setSheetExpanded(false);
+  canvas.focus({ preventScroll: true });
+});
+$('#exit-sim').addEventListener('click', () => setSimulation(false, true));
+
 aerialGallery.addEventListener('toggle', () => {
   if (aerialGallery.open && selectedPhoto === null) showPhotograph(0);
 });
@@ -228,50 +302,83 @@ $('#unit-list').innerHTML = units.map(unit => `
     <span class="unit-card-area">${formatArea(unit.area)}</span>
   </button>`).join('');
 
-function selectUnit(id, fromPlan) {
-  selectedUnit = units.find(unit => unit.id === id);
-  openPlan(false);
+function selectUnit(id, { rotate = true, focus = false, updateUrl = true } = {}) {
+  const unit = units.find(item => item.id === id);
+  if (!unit) return;
+  if (simulating) setSimulation(false);
+  selectedUnit = unit;
+  renderUnit();
+  openPanel('details', { focus, rotate, updateUrl });
+}
+
+function renderUnit() {
+  $('#tab-details').disabled = !selectedUnit;
+  for (const button of $$('[data-unit], [data-unit-pin]')) {
+    const id = button.dataset.unit || button.dataset.unitPin;
+    button.setAttribute('aria-pressed', String(id === selectedUnit?.id));
+  }
   const detail = $('#unit-detail');
+  if (!selectedUnit) {
+    detail.replaceChildren();
+    return;
+  }
+  const { id, area, price } = selectedUnit;
   detail.innerHTML = `
     <div class="detail-head">
-      <h3 tabindex="-1">Unidade ${selectedUnit.id}</h3>
+      <h3 tabindex="-1">Unidade ${id}</h3>
       <button type="button" class="save-button" id="save-unit"></button>
     </div>
     <dl>
-      <div><dt>Área privativa</dt><dd>${formatArea(selectedUnit.area)}</dd></div>
+      <div><dt>Área privativa</dt><dd>${formatArea(area)}</dd></div>
       <div><dt>Quartos</dt><dd>1 suíte</dd></div>
-      <div><dt>Preço anunciado em 02/07/2026</dt><dd>${priceFormat.format(selectedUnit.price)}</dd></div>
+      <div><dt>Preço anunciado em 02/07/2026</dt><dd>${priceFormat.format(price)}</dd></div>
     </dl>
     <div class="unit-detail-links">
       ${unitPlanLink(selectedUnit, 'Ver planta publicada')}
-      <button type="button" class="jump-to-model">Ver no edifício ↑</button>
-    </div>`;
-  detail.hidden = false;
-  $('#sheet-selection').textContent = 'Unidade ' + id;
-  for (const button of $$('[data-unit]')) {
-    button.setAttribute('aria-pressed', String(button.dataset.unit === id));
-  }
+      <button type="button" class="text-button" id="locate-unit">Ver no edifício ↑</button>
+      <button type="button" class="text-button" id="copy-unit">Copiar link da unidade</button>
+    </div>
+    ${id === '1108' ? '<button type="button" class="compare-button sim-start" id="start-sim">Explorar vista simulada da 1108 <span aria-hidden="true">↗</span></button>' : ''}`;
   renderFavourite();
   $('#save-unit').addEventListener('click', toggleFavourite);
-  $('.jump-to-model').addEventListener('click', () => showUnitOnBuilding(id));
-  if (fromPlan && !mediaSmall.matches) detail.querySelector('h3').focus({ preventScroll: true });
-  if (mediaSmall.matches) {
-    if (!fromPlan) $('#plan-title').focus({ preventScroll: true });
-    $('.site-header').scrollIntoView({ block: 'start' });
+  $('#locate-unit').addEventListener('click', () => showUnitOnBuilding(id));
+  $('#copy-unit').addEventListener('click', () => copyLink(unitLink(id), $('#panel-share-status')));
+  const startSim = $('#start-sim');
+  if (startSim) {
+    startSim.disabled = !model;
+    startSim.addEventListener('click', () => setSimulation(true, true));
   }
 }
 
 function showUnitOnBuilding(id) {
-  selectUnit(id, false);
+  selectUnit(id, { focus: false });
   if (mediaSmall.matches) setSheetExpanded(false);
   canvas.focus({ preventScroll: true });
 }
 
-function focusUnitInScene(unit) {
-  model?.showUnit(unit.id);
-  unitPin.textContent = unit.id;
-  $('#floor-status').textContent = 'Unidade ' + unit.id + ' · ' + unit.wing;
+function focusUnitInScene(unit, rotate) {
+  model?.showUnit(unit.id, { rotate });
   updateAngleButton(unit.id === '1103');
+  updateSummary();
+}
+
+function setSimulation(enabled, focus = false) {
+  simulating = enabled;
+  model?.simulate(enabled);
+  workspace.classList.toggle('simulating', enabled);
+  simView.hidden = !enabled;
+  canvas.setAttribute('aria-label', enabled ? 'Vista simulada da unidade 1108 voltada para a orla' : 'Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde');
+  if (enabled) {
+    rotateToUnit.hidden = true;
+    setSheetExpanded(false);
+    if (mediaSmall.matches) $('.site-header').scrollIntoView({ block: 'start' });
+    if (focus) $('#exit-sim').focus({ preventScroll: true });
+  } else if (focus) {
+    setSheetExpanded(true);
+    openPanel('details');
+    $('#start-sim')?.focus({ preventScroll: true });
+  }
+  updateSummary();
 }
 
 function updateAngleButton(showWaterfront) {
@@ -327,9 +434,11 @@ const comparisonRows = [
   ['Preço anunciado', unit => priceFormat.format(unit.price)]
 ];
 const areaDifference = units[1].area - units[0].area;
-$('#compare-summary').textContent = 'A unidade 1108 tem ' + formatArea(areaDifference)
+const compareSummary = 'A unidade 1108 tem ' + formatArea(areaDifference)
   + ' a mais de área privativa (' + new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 1 }).format(areaDifference / units[0].area) + ').';
-$('#compare-plans').innerHTML = units.map(unit => `
+$('#compare-summary').textContent = compareSummary;
+$('#compare-panel-summary').textContent = compareSummary;
+const comparisonCards = units.map(unit => `
   <figure class="compare-plan">
     <figcaption><strong>${unit.id}</strong><span>${formatArea(unit.area)}</span></figcaption>
     <div class="compare-diagram">
@@ -343,6 +452,8 @@ $('#compare-plans').innerHTML = units.map(unit => `
       ${unitPlanLink(unit, 'Desenho publicado')}
     </div>
   </figure>`).join('');
+$('#compare-plans').innerHTML = comparisonCards;
+$('#compare-panel-plans').innerHTML = comparisonCards;
 // Both outlines use the same coordinate scale from the typical floor drawing.
 const planDrawings = {
   '1103': {
@@ -465,39 +576,108 @@ for (const button of $$('[data-view]')) {
     } else if (button === floorChip && activeView === 'plan') {
       closePlan();
     } else {
-      openPlan(true);
+      if (simulating) setSimulation(false);
+      openPanel('plan', { focus: true, rotate: activeView !== 'plan' });
     }
   });
 }
 for (const button of $$('[data-unit]')) {
-  button.addEventListener('click', () => selectUnit(button.dataset.unit, button.classList.contains('plan-unit')));
+  button.addEventListener('click', () => selectUnit(button.dataset.unit, { focus: true }));
 }
 for (const button of $$('[data-camera]')) {
   button.addEventListener('click', () => {
     const action = button.dataset.camera;
-    if (!['rear', 'model', 'reset'].includes(action)) {
-      model?.changeView(action);
-      return;
-    }
-    if (activeView === 'plan') {
+    if (simulating || activeView === 'plan' || !['rear', 'model', 'reset'].includes(action)) {
       model?.changeView(action);
     } else {
       setView('model', { cameraAction: action });
     }
-    updateAngleButton(action === 'rear');
+    if (['rear', 'model', 'reset'].includes(action)) updateAngleButton(action === 'rear');
   });
 }
 for (const button of $$('[data-photo]')) {
   button.addEventListener('click', () => showPhotograph(Number(button.dataset.photo)));
 }
-$('#compare-open').addEventListener('click', () => {
+$('#compare-open').addEventListener('click', () => openPanel('compare', { focus: true }));
+$('#expand-compare').addEventListener('click', () => {
   compareDialog.showModal();
   drawComparisonPlans();
   compareDialog.scrollTop = 0;
 });
 for (const button of $$('[data-show-building]')) {
   button.addEventListener('click', () => {
-    compareDialog.close();
+    if (compareDialog.open) compareDialog.close();
     showUnitOnBuilding(button.dataset.showBuilding);
   });
 }
+
+const comparisonIds = units.map(unit => unit.id).join(',');
+
+function stateLink({ unit, compare = false } = {}) {
+  const url = new URL(location.href);
+  url.searchParams.delete('unidade');
+  url.searchParams.delete('comparar');
+  if (unit) url.searchParams.set('unidade', unit);
+  if (compare) url.searchParams.set('comparar', comparisonIds);
+  return url;
+}
+
+function unitLink(id) {
+  const url = stateLink({ unit: id });
+  url.hash = '';
+  return url;
+}
+
+function comparisonLink() {
+  const url = stateLink({ compare: true });
+  url.hash = '';
+  return url;
+}
+
+function syncUrl() {
+  const showPanel = activeView === 'plan';
+  const url = stateLink({
+    unit: showPanel ? selectedUnit?.id : null,
+    compare: showPanel && activePanel === 'compare'
+  });
+  if (url.search !== location.search) history.pushState(null, '', url);
+}
+
+function restoreRoute(initial = false) {
+  if (compareDialog.open) compareDialog.close();
+  if (simulating) setSimulation(false);
+  const params = new URLSearchParams(location.search);
+  selectedUnit = units.find(unit => unit.id === params.get('unidade')) || null;
+  renderUnit();
+  const pair = params.get('comparar');
+  if (pair?.split(',').sort().join(',') === comparisonIds) {
+    openPanel('compare', { rotate: Boolean(selectedUnit), updateUrl: false });
+  } else if (selectedUnit) {
+    openPanel('details', { rotate: true, updateUrl: false });
+  } else if (!initial) {
+    setView('model', { updateUrl: false });
+    updateAngleButton(false);
+  }
+}
+
+async function copyLink(url, status) {
+  status.replaceChildren();
+  try {
+    await navigator.clipboard.writeText(url.href);
+    status.textContent = 'Link copiado.';
+  } catch {
+    const input = document.createElement('input');
+    input.type = 'url';
+    input.readOnly = true;
+    input.value = url.href;
+    input.setAttribute('aria-label', 'Link para copiar');
+    status.append(input);
+    input.focus({ preventScroll: true });
+    input.select();
+  }
+}
+
+$('#copy-panel-compare').addEventListener('click', () => copyLink(comparisonLink(), $('#panel-share-status')));
+$('#copy-compare').addEventListener('click', () => copyLink(comparisonLink(), $('#compare-share-status')));
+window.addEventListener('popstate', () => restoreRoute());
+restoreRoute(true);

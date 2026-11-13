@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=five-5">
-  <script src="building.js?v=five-5" defer></script>
-  <script src="app.js?v=five-5" defer></script>
+  <link rel="stylesheet" href="style.css?v=five-6">
+  <script src="building.js?v=five-6" defer></script>
+  <script src="app.js?v=five-6" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -35,17 +35,23 @@
         </div>
 
         <div id="model-stage" class="model-stage">
-          <img id="satellite-ground" class="satellite-ground" src="aerial/ponta-verde-cbers.jpg?v=five-5" width="1152" height="1152" alt="">
+          <img id="satellite-ground" class="satellite-ground" src="aerial/ponta-verde-cbers.jpg?v=five-6" width="1152" height="1152" alt="">
           <canvas id="building-canvas" tabindex="0" aria-label="Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde" aria-describedby="model-instructions"></canvas>
           <button type="button" class="site-pin" id="site-pin" aria-label="Aproximar de Five Flex Life" hidden><span>Five Flex Life</span></button>
-          <p id="model-instructions" class="sr-only">Arraste para girar. No teclado, use as setas para girar e mais ou menos para aproximar ou afastar. Entorno amplia a vista da orla e o botão Five Flex Life aproxima o edifício. O botão 11º pavimento abre a planta.</p>
+          <p id="model-instructions" class="sr-only">Arraste para girar. No teclado, use as setas para girar e mais ou menos para aproximar ou afastar. Entorno amplia a vista da orla e o botão Five Flex Life aproxima o edifício. Selecione 1103 ou 1108 na fachada. O botão 11º pavimento abre a planta.</p>
           <p class="model-fallback" id="model-fallback" hidden>Maquete indisponível. Selecione Planta para explorar o 11º pavimento.</p>
           <span class="scene-landmark" id="beach-label" hidden>Praia de Ponta Verde</span>
           <span class="scene-landmark" id="avenue-label" hidden>Av. Sílvio Carlos Viana</span>
-          <span class="unit-pin" id="unit-pin" aria-hidden="true" hidden></span>
+          <button type="button" class="unit-pin" data-unit-pin="1103" aria-label="Selecionar unidade 1103 na fachada" aria-pressed="false" hidden>1103</button>
+          <button type="button" class="unit-pin" data-unit-pin="1108" aria-label="Selecionar unidade 1108 na fachada" aria-pressed="false" hidden>1108</button>
+          <div id="sim-view" class="sim-view" hidden>
+            <p><strong>Vista simulada · 1108</strong><span>Posição aproximada no 11º pavimento · Maquete e satélite</span></p>
+            <button type="button" id="exit-sim">Voltar ao edifício</button>
+          </div>
           <div class="model-meta">
             <span class="model-label" id="scene-label">Maquete sobre imagem de satélite</span>
             <button type="button" class="angle-button" id="angle-button" data-camera="rear">Ver ala posterior <span aria-hidden="true">↻</span></button>
+            <button type="button" class="angle-button" id="rotate-to-unit" hidden>Girar até a unidade <span aria-hidden="true">↻</span></button>
           </div>
           <button type="button" class="floor-chip" data-view="plan" aria-controls="plan-stage" aria-expanded="false" aria-label="Abrir planta do 11º pavimento"><b>11º</b><span class="floor-chip-label">Pavimento</span><span aria-hidden="true">↗</span></button>
           <output id="floor-tooltip" class="floor-tooltip" aria-hidden="true" hidden></output>
@@ -69,10 +75,15 @@
             <span id="sheet-selection">11º pavimento</span>
             <button class="sheet-toggle" id="sheet-toggle" type="button" aria-expanded="true" aria-controls="sheet-content">Recolher</button>
           </div>
-          <button class="close-button" id="close-plan" type="button" aria-label="Fechar planta">×</button>
+          <button class="close-button" id="close-plan" type="button" aria-label="Fechar painel de unidades">×</button>
         </div>
         <div id="sheet-content">
-          <section id="plan-stage" class="plan-stage" aria-labelledby="plan-title" hidden>
+          <div id="unit-tabs" class="unit-tabs" role="tablist" aria-label="Explorar unidades" hidden>
+            <button type="button" id="tab-plan" role="tab" aria-controls="plan-stage" aria-selected="true" data-panel="plan">Planta</button>
+            <button type="button" id="tab-details" role="tab" aria-controls="details-panel" aria-selected="false" tabindex="-1" data-panel="details" disabled>Detalhes</button>
+            <button type="button" id="tab-compare" role="tab" aria-controls="compare-panel" aria-selected="false" tabindex="-1" data-panel="compare">Comparar</button>
+          </div>
+          <section id="plan-stage" class="plan-stage" role="tabpanel" aria-labelledby="tab-plan" hidden>
             <div class="stage-heading">
               <p class="eyebrow">Planta de navegação</p>
               <h2 id="plan-title" tabindex="-1">11º pavimento</h2>
@@ -112,7 +123,16 @@
           <h2 id="units-title">Unidades</h2>
           <p class="units-intro">Explore as duas unidades do 11º pavimento.</p>
           <div class="unit-list" id="unit-list"></div>
-          <div id="unit-detail" class="unit-detail" hidden></div>
+          <section id="details-panel" role="tabpanel" aria-labelledby="tab-details" hidden>
+            <div id="unit-detail" class="unit-detail"></div>
+          </section>
+          <section id="compare-panel" role="tabpanel" aria-labelledby="tab-compare" hidden>
+            <p id="compare-panel-summary"></p>
+            <div id="compare-panel-plans" class="compare-plans"></div>
+            <button type="button" id="expand-compare" class="compare-button">Ampliar comparação <span aria-hidden="true">↗</span></button>
+            <button type="button" class="text-button" id="copy-panel-compare">Copiar link da comparação</button>
+          </section>
+          <output id="panel-share-status" class="share-status" aria-live="polite"></output>
           <button type="button" id="compare-open" class="compare-button">Comparar 1103 e 1108 <span aria-hidden="true">↗</span></button>
         </div>
       </aside>
@@ -140,7 +160,7 @@
     <footer class="sources" id="fontes">
       <h2>Fontes e créditos</h2>
       <p>Planta de navegação e maquete produzidas para esta demonstração. Demonstração independente. Dados das unidades consultados na tabela de 02/07/2026. Preços e disponibilidade podem ter mudado.</p>
-      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), recortada, reprojetada e com cores ajustadas. A fachada e a planta de navegação seguem as referências publicadas. O desenho das ruas, da ciclovia e dos volumes vizinhos usa dados do OpenStreetMap. A maquete, as larguras das vias e as alturas dos edifícios são aproximadas. As alturas usam os dados disponíveis e estimativas por tipo de edifício.</p>
+      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), recortada, reprojetada e com cores ajustadas. A fachada e a planta de navegação seguem as referências publicadas. O desenho das ruas, da ciclovia e dos volumes vizinhos usa dados do OpenStreetMap. A maquete, as larguras das vias e as alturas dos edifícios são aproximadas. As alturas usam os dados disponíveis e estimativas por tipo de edifício. A vista da unidade 1108 é uma simulação a partir de uma posição aproximada na maquete.</p>
       <ul>
         <li><a href="https://data.inpe.br/bdc/stac/v1/collections/CB4A-WPM-PCA-FUSED-1/items/CBERS4A_WPM_PCA_RGB321_20261002_192_125" target="_blank" rel="noopener">Imagem de satélite · INPE ↗</a></li>
         <li><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">Edifícios e vias · OpenStreetMap, ODbL ↗</a></li>
@@ -166,6 +186,8 @@
     <div id="compare-plans" class="compare-plans"></div>
     <p class="compare-plan-note">Plantas esquemáticas na mesma escala gráfica aproximada. Portas, janelas e ambientes seguem as tipologias publicadas. As plantas não informam áreas por ambiente.</p>
     <div id="compare-content"></div>
+    <button type="button" class="text-button" id="copy-compare">Copiar link da comparação</button>
+    <output id="compare-share-status" class="share-status" aria-live="polite"></output>
     <p class="snapshot-note">Valores anunciados em 02/07/2026. Consulte a imobiliária para preço e disponibilidade atuais.</p>
   </dialog>
 </body>
