@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=five-3">
-  <script src="building.js?v=five-3" defer></script>
-  <script src="app.js?v=five-3" defer></script>
+  <link rel="stylesheet" href="style.css?v=five-4">
+  <script src="building.js?v=five-4" defer></script>
+  <script src="app.js?v=five-4" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -41,21 +41,23 @@
         </div>
 
         <div id="model-stage" class="model-stage">
-          <img id="satellite-ground" class="satellite-ground" src="aerial/ponta-verde-cbers.jpg" width="1152" height="1152" alt="">
+          <img id="satellite-ground" class="satellite-ground" src="aerial/ponta-verde-cbers.jpg?v=five-4" width="1152" height="1152" alt="">
           <canvas id="building-canvas" tabindex="0" aria-label="Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde" aria-describedby="model-instructions"></canvas>
           <button type="button" class="site-pin" id="site-pin" aria-label="Aproximar de Five Flex Life" hidden><span>Five Flex Life</span></button>
           <p id="model-instructions" class="sr-only">Arraste para girar. No teclado, use as setas para girar e mais ou menos para aproximar ou afastar. Entorno amplia a vista da orla e o botão Five Flex Life aproxima o edifício. O botão 11º pavimento abre a planta.</p>
-          <p class="model-fallback" id="model-fallback" hidden>Maquete indisponível. Use o botão do 11º pavimento para abrir a planta.</p>
+          <p class="model-fallback" id="model-fallback" hidden>Maquete indisponível. Selecione Planta para explorar o 11º pavimento.</p>
           <span class="scene-landmark" id="beach-label" hidden>Praia de Ponta Verde</span>
+          <span class="scene-landmark" id="avenue-label" hidden>Av. Sílvio Carlos Viana</span>
+          <span class="unit-pin" id="unit-pin" aria-hidden="true" hidden></span>
           <div class="model-meta">
             <span class="model-label" id="scene-label">Maquete sobre imagem de satélite</span>
             <button type="button" class="angle-button" id="angle-button" data-camera="rear">Ver ala posterior <span aria-hidden="true">↻</span></button>
           </div>
-          <button type="button" class="floor-chip" data-view="plan"><b>11º</b> <span>Pavimento</span> <span aria-hidden="true">↗</span></button>
+          <button type="button" class="floor-chip" data-view="plan" aria-controls="plan-stage" aria-expanded="false" aria-label="Abrir planta do 11º pavimento"><b>11º</b><span class="floor-chip-label">Pavimento</span><span aria-hidden="true">↗</span></button>
           <output id="floor-tooltip" class="floor-tooltip" aria-hidden="true" hidden></output>
-          <a class="scene-credit" href="#fontes">Imagem © INPE · 02/10/2026</a>
+          <div class="scene-credit"><a href="#fontes">Imagem © INPE</a><a id="osm-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" hidden>© OpenStreetMap contributors</a></div>
           <div class="model-bottom">
-            <p id="floor-status" class="floor-status" aria-live="polite">Arraste para girar · Clique no 11º pavimento</p>
+            <p id="floor-status" class="floor-status" aria-live="polite">Arraste para girar · Explore o 11º pavimento</p>
             <div id="model-controls" class="model-controls" role="group" aria-label="Controles da maquete">
               <button type="button" data-camera="left" aria-label="Girar à esquerda" title="Girar à esquerda">↶</button>
               <button type="button" data-camera="right" aria-label="Girar à direita" title="Girar à direita">↷</button>
@@ -65,11 +67,13 @@
             </div>
           </div>
         </div>
+      </section>
 
-        <div id="plan-stage" class="plan-stage" hidden>
+      <aside class="residences" aria-labelledby="units-title">
+        <section id="plan-stage" class="plan-stage" aria-labelledby="plan-title" hidden>
           <div class="stage-heading">
             <p class="eyebrow">Planta de navegação</p>
-            <h2>11º pavimento</h2>
+            <h2 id="plan-title" tabindex="-1">11º pavimento</h2>
           </div>
           <div class="plan" aria-label="Posição das unidades no 11º pavimento" role="group">
             <span class="corridor corridor-vertical" aria-hidden="true"></span>
@@ -101,12 +105,8 @@
             <span>Posições aproximadas · Sem escala</span>
             <a href="https://acetdkxqjkygfagvspmf.supabase.co/storage/v1/object/public/images/plantas/1773875574260-z9gcw2hm1up.png" target="_blank" rel="noopener">Planta da incorporadora ↗</a>
           </div>
-        </div>
-
-      </section>
-
-      <aside class="residences" aria-labelledby="units-title">
-        <p class="eyebrow">11º pavimento</p>
+        </section>
+        <p class="eyebrow" id="units-floor">11º pavimento</p>
         <h2 id="units-title">Unidades</h2>
         <p class="units-intro">Selecione uma unidade para localizar a planta e consultar os detalhes.</p>
         <div class="unit-list" id="unit-list"></div>
@@ -137,9 +137,11 @@
     <footer class="sources" id="fontes">
       <h2>Fontes e créditos</h2>
       <p>Planta de navegação e maquete produzidas para esta demonstração. Dados das unidades consultados na tabela de 02/07/2026. Preços e disponibilidade podem ter mudado.</p>
-      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), recortada e reprojetada. Entorno em fotografia de satélite. Maquete com posição, escala e geometria aproximadas.</p>
+      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), recortada, reprojetada e com cores ajustadas. A fachada e a planta de navegação seguem as referências publicadas. A maquete e as alturas dos edifícios vizinhos são aproximadas. As alturas usam os dados disponíveis e estimativas por tipo de edifício.</p>
       <ul>
         <li><a href="https://data.inpe.br/bdc/stac/v1/collections/CB4A-WPM-PCA-FUSED-1/items/CBERS4A_WPM_PCA_RGB321_20261002_192_125" target="_blank" rel="noopener">Imagem de satélite · INPE ↗</a></li>
+        <li><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">Contornos dos edifícios · OpenStreetMap, ODbL ↗</a></li>
+        <li><a href="aerial/osm-buildings.json">Dados dos contornos usados na cena ↓</a></li>
         <li><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">Licença da imagem · CC BY 4.0 ↗</a></li>
         <li><a href="https://coutinhoincorporacoes.com.br/empreendimentos/eef93708-9dc0-45ea-bf3e-68d5dec86f73" target="_blank" rel="noopener">Coutinho Incorporações ↗</a></li>
         <li><a href="https://www.hiltonimoveis.com.br/empreendimentos/five-ponta-verde" target="_blank" rel="noopener">Hilton Imóveis ↗</a></li>
@@ -157,6 +159,8 @@
       <form method="dialog"><button class="close-button" aria-label="Fechar comparação" autofocus>×</button></form>
     </div>
     <p id="compare-summary" class="compare-summary"></p>
+    <div id="compare-plans" class="compare-plans"></div>
+    <p class="compare-plan-note">Contornos na mesma escala gráfica aproximada, derivados do mesmo pavimento tipo. Divisões indicativas a partir das plantas publicadas, que não informam a área por ambiente.</p>
     <div id="compare-content"></div>
     <p class="snapshot-note">Valores anunciados em 02/07/2026. Consulte a imobiliária para preço e disponibilidade atuais.</p>
   </dialog>

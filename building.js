@@ -1,5 +1,13 @@
 (() => {
-  const initialView = { yaw: -.18, pitch: .66, zoom: .72 };
+  const initialView = { yaw: -.24, pitch: .94, zoom: .43 };
+  const closeView = { yaw: -.29, pitch: .62, zoom: .88 };
+  const rearView = { yaw: -1.78, pitch: .78, zoom: .82 };
+  const floorHeight = floor => 1.62 + (floor - 1) * 1.04;
+  const floor11 = floorHeight(11);
+  const unitPositions = {
+    '1103': { x: -3.12, z: -1.48, angle: rearView },
+    '1108': { x: -1.03, z: 2.30, angle: closeView }
+  };
   const minZoom = .095;
   const maxZoom = 1.45;
   const fieldOfView = 36;
@@ -8,8 +16,8 @@
 
   function buildScene() {
     const surfaces = [];
-    function addFace(points, normal, color, floor, details = []) {
-      surfaces.push({ points, normal, color, floor, details });
+    function addFace(points, normal, color, floor, details = [], unit = null) {
+      surfaces.push({ points, normal, color, floor, details, unit });
     }
 
     // Every face keeps its own decorative panels in plane, so glass and trim
@@ -22,79 +30,103 @@
       addFace([[x1,y2,z2],[x2,y2,z2],[x2,y2,z1],[x1,y2,z1]], [0,1,0], colors[2], floor, panels('top'));
     }
 
-    const stone = ['#ece9dd','#c9cbbc','#fbf7e9'];
-    const plaster = ['#ede7d7','#bfc6b9','#f7efe0'];
-    const garden = ['#56765b','#456249','#8eae7e'];
-    const bronze = ['#a38460','#725b45','#be9d73'];
+    const stone = ['#f0eee7', '#d1c9ba', '#f7f2e6'];
+    const plaster = ['#ded9d0', '#b9b0a2', '#eee6d9'];
+    const bronze = ['#855d46', '#634838', '#a77a53'];
     const panel = (u1, v1, u2, v2, color) => ({ u1, v1, u2, v2, color });
-    const glass = ['#426e69','#5a8881','#4b7d77','#69978c','#4e7a76'];
+    const glass = ['#5a6b6a', '#89928a', '#4b595d', '#6f8383', '#626a64'];
 
-    function windows(side, floor, columns) {
+    function windows(side, floor, columns, waterfront = false) {
       if (side === 'top') return [];
-      const result = [panel(0, 0, 1, .11, '#dad8cb')];
+      const result = [];
       for (let i = 0; i < columns; i++) {
-        const start = (i + .15) / columns;
-        const end = (i + .90) / columns;
-        const pane = glass[(floor + i) % glass.length];
+        const left = i / columns;
+        const right = (i + 1) / columns;
+        const frame = waterfront && [0, 3, 6, 9].includes(i);
         result.push(
-          panel(start, .12, end, .94, '#3b534e'),
-          panel(start + .012, .19, end - .012, .90, pane),
-          panel(start + .016, .46, end - .016, .49, '#a5bab0'),
-          panel(start, .12, start + .009, .94, '#a18a68')
+          panel(left, 0, right, 1, frame ? '#60574f' : '#b68b66'),
+          panel(left + .012, .18, right - .009, .91, '#4f4b46'),
+          panel(left + .020, .19, right - .017, .81, glass[(floor + i) % glass.length]),
+          panel(left + .022, .19, right - .019, .39, '#9da9a3')
         );
       }
       return result;
     }
 
-    function frontWindows(side, floor) {
-      return windows(side, floor, side === 'front' || side === 'back' ? 10 : 3);
+    function waterfrontWindows(side, floor) {
+      return windows(side, floor, side === 'front' || side === 'back' ? 10 : 3, side === 'front');
     }
 
-    const rail = ['#91afa5','#79988f','#bad2c7'];
-    function railPanels(side) {
-      if (side !== 'front' && side !== 'back') return [];
-      return Array.from({ length: 9 }, (_, i) => {
-        const position = (i + 1) / 10;
-        return panel(position, 0, position + .004, 1, '#e3e8dc');
+    function podiumSlats(side) {
+      if (side === 'top') return [];
+      const count = side === 'front' || side === 'back' ? 43 : 18;
+      return Array.from({ length: count }, (_, i) => {
+        const u = i / count;
+        return panel(u, 0, u + .35 / count, 1, '#b38967');
       });
     }
 
-    box(-5.12, 5.12, -.23, -.12, -4.87, 3.5, ['#8da398','#819a8c','#bfd0c1']);
-    box(-4.90, 4.90, -.12, 0, -4.65, 3.25, ['#b9b7a8','#a9b0a1','#e4e1d2']);
-    box(-4.27, 4.27, 0, 1.12, -.71, 1.91, ['#a49981','#7d887b','#dddacc'], null, side => frontWindows(side, 1));
-    box(-3.0, -1.55, 0, 1.12, -4.0, -.71, ['#a49981','#7d887b','#dddacc']);
-    box(-4.23, 4.23, 0, .09, 2.39, 2.97, ['#a1b6aa','#819d91','#c9d5c5']);
-    box(-.8, 4.13, 0, .12, -3.94, -1.2, garden);
+    box(-4.48, 4.62, -.23, 0, -1.08, 2.56, ['#a19f91','#777d70','#c6c0ab']);
+    box(-3.16, -1.48, -.23, 0, -5.45, -1.08, ['#a19f91','#777d70','#c6c0ab']);
+    box(-4.56, 4.50, 0, .73, -.88, 2.29, ['#b69879','#8f795f','#c4b49e'], null, side => waterfrontWindows(side, 1));
+    box(-4.64, 4.53, .73, 1.53, -.94, 2.42, bronze, null, podiumSlats);
+    box(-4.66, 4.55, 1.52, 1.65, -.96, 2.45, stone);
+    box(-3.12, -1.55, 0, 1.62, -5.40, -.96, bronze);
 
     for (let floor = 1; floor <= 12; floor++) {
-      const y = 1.12 + (floor - 1) * 1.04;
+      const y = floorHeight(floor);
       const id = String(floor).padStart(2, '0');
-
-      // The waterfront wing and the deeper perpendicular wing share a floor.
-      box(-3.0, -1.55, y, y + .89, -4.0, -.71, plaster, id, side => windows(side, floor, 3));
-      box(-3.10, -1.45, y + .89, y + 1.04, -4.18, -.84, stone, id);
-      box(-4.24, 4.24, y, y + .89, -.71, 1.82, plaster, id, side => frontWindows(side, floor));
-      box(-4.39, 4.39, y + .89, y + 1.04, -.84, 2.31, stone, id);
-      box(-4.29, 4.29, y + .035, y + .27, 2.205, 2.25, rail, id, railPanels);
-    }
-
-    const roof = 1.12 + 12 * 1.04;
-    box(-3.08, -1.48, roof, roof + .16, -4.12, -.84, stone, '12');
-    box(-4.31, 4.31, roof, roof + .16, -.84, 2.16, stone, '12');
-    box(-4.0, 4.0, roof + .16, roof + .22, -.80, 1.97, ['#d0bb9a','#b39f82','#d9c4a1'], '12');
-    box(-2.62, -2.13, roof + .2, roof + .48, -.72, 1.75, garden, '12');
-    box(2.13, 2.62, roof + .2, roof + .48, -.72, 1.75, garden, '12');
-    box(-1.65, .52, roof + .2, roof + .27, .5, 1.62, ['#6aa797','#6aa797','#83bdaf'], '12');
-    for (const x of [0.72, 2.04]) {
-      for (const z of [-.68, .40]) {
-        box(x, x + .08, roof + .22, roof + 1.18, z, z + .08, bronze, '12');
+      box(-3.04, -1.56, y, y + .94, -4.46, -.72, plaster, id, side => windows(side, floor, 3));
+      box(-3.12, -1.49, y + .88, y + 1.04, -4.55, -.84, stone, id);
+      box(-4.24, 4.24, y, y + .94, -.72, 1.97, plaster, id, side => waterfrontWindows(side, floor));
+      box(-4.36, 4.36, y + .86, y + 1.04, -.84, 2.30, stone, id);
+      for (const [left, right] of [[-4.39, -4.19], [-.16, .05], [4.19, 4.39]]) {
+        box(left, right, y, y + 1.04, 1.94, 2.32, stone, id);
       }
     }
-    for (let i = 0; i < 6; i++) {
-      const x = .68 + i * .29;
-      box(x, x + .10, roof + 1.18, roof + 1.27, -.78, .58, bronze, '12');
+
+    // Highlight the approximate façade positions on the selected floor.
+    addFace([[-1.56, floor11, 2.33], [-.50, floor11, 2.33],
+      [-.50, floor11 + 1.04, 2.33], [-1.56, floor11 + 1.04, 2.33]],
+      [0, 0, 1], '#d8f0a1', '11', [], '1108');
+    addFace([[-3.13, floor11, -2.06], [-3.13, floor11, -.88],
+      [-3.13, floor11 + 1.04, -.88], [-3.13, floor11 + 1.04, -2.06]],
+      [-1, 0, 0], '#d8f0a1', '11', [], '1103');
+
+    const roof = floorHeight(13);
+    box(-3.12, -1.49, roof, roof + .20, -4.56, -.83, stone, '12');
+    box(-4.38, 4.38, roof, roof + .21, -.84, 2.31, stone, '12');
+    box(-4.10, 4.10, roof + .20, roof + .29, -.72, 2.08, ['#c8ab89','#ad9374','#ded0b6'], '12');
+    box(-1.60, .78, roof + .28, roof + .33, .73, 1.72, ['#477b7a','#3d7371','#77aca4'], '12');
+    box(2.28, 3.96, roof + .28, roof + .77, -.63, .63, plaster, '12');
+    for (const x of [1.06, 2.05]) {
+      box(x, x + .07, roof + .29, roof + 1.02, 1.67, 1.74, bronze, '12');
     }
+    box(.96, 2.21, roof + .99, roof + 1.11, .96, 1.80, bronze, '12');
     return surfaces;
+  }
+
+  function neighbourhoodFaces(footprints) {
+    const faces = [];
+    for (const { outline, height, kind } of footprints) {
+      const estimatedMetres = kind === 'apartments' ? 24 : kind === 'residential' ? 10 : 6;
+      const top = (height ?? estimatedMetres) / 3.35;
+      const base = -.22;
+      const signedArea = outline.reduce((area, [x, z], i) => {
+        const [nextX, nextZ] = outline[(i + 1) % outline.length];
+        return area + x * nextZ - nextX * z;
+      }, 0);
+      const winding = Math.sign(signedArea);
+      faces.push({ points: outline.map(([x, z]) => [x, top, z]), normal: [0, 1, 0], color: kind === 'apartments' ? '#b6aaa0' : '#a4a29a' });
+      for (let i = 0; i < outline.length; i++) {
+        const [x, z] = outline[i];
+        const [nextX, nextZ] = outline[(i + 1) % outline.length];
+        const normal = [winding * (nextZ - z), 0, winding * (x - nextX)];
+        const color = Math.abs(normal[0]) > Math.abs(normal[2]) ? '#797e79' : '#918b80';
+        faces.push({ points: [[x, base, z], [nextX, base, nextZ], [nextX, top, nextZ], [x, top, z]], normal, color });
+      }
+    }
+    return faces;
   }
 
   function trace(ctx, points) {
@@ -116,7 +148,9 @@
   function createBuilding(canvas, { availableFloors, ground, onSelect, onHover, onViewChange, onPosition }) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
-    const surfaces = buildScene();
+    const tower = buildScene();
+    let neighbours = [];
+    let selectedUnit = null;
     const camera = { ...initialView };
     let width = 0;
     let height = 0;
@@ -150,7 +184,7 @@
       const distance = fieldOfView / camera.zoom;
       const target = clamp((camera.zoom - .13) * 8, .5, 5.4);
       const centreX = width * .50;
-      const centreY = height * (.49 - .13 * camera.zoom);
+      const centreY = height * (.42 - .13 * camera.zoom);
 
       function homogeneous(x, y, z) {
         const ahead = x * sinYaw + z * cosYaw;
@@ -167,7 +201,7 @@
 
       function project([x, y, z]) {
         const point = homogeneous(x, y, z);
-        return { x: point.x / point.w, y: point.y / point.w, depth: point.depth };
+        return { x: point.x / point.w, y: point.y / point.w, depth: point.depth, w: point.w };
       }
 
       if (ground) {
@@ -189,12 +223,35 @@
         element.style.transform = 'matrix3d(' + matrix.join(',') + ')';
       }
 
+      const unit = unitPositions[selectedUnit];
       onPosition({
-        tower: project([0, 15.9, 0]),
-        beach: project([18, -.24, 31]),
+        tower: project([0, 16.2, 0]),
+        floor: project(sinYaw < -.75
+          ? [-3.13, floor11 + .56, -4.5]
+          : cosYaw < -.30
+            ? [-4.36, floor11 + .56, -.84]
+            : [4.36, floor11 + .56, 2.31]),
+        unit: unit && (selectedUnit === '1103' ? sinYaw < -.18 : cosYaw > .20)
+          ? project([unit.x, floor11 + .62, unit.z]) : null,
+        beach: project([25, -.24, 24]),
+        avenue: project([-17, -.24, 13]),
         width,
         height
       });
+
+      function cameraFaces() {
+        const visible = [];
+        for (const surface of [...neighbours, ...tower]) {
+          if (surface.unit && surface.unit !== selectedUnit) continue;
+          const [nx, ny, nz] = surface.normal;
+          if (nx * sinYaw * cosPitch + ny * sinPitch + nz * cosYaw * cosPitch <= 0) continue;
+          const points = surface.points.map(project);
+          if (points.some(point => point.w <= 0)) continue;
+          const depth = points.reduce((sum, point) => sum + point.depth, 0) / points.length;
+          visible.push({ surface, points, depth });
+        }
+        return visible.sort((a, b) => a.depth - b.depth);
+      };
       const shadow = project([0, -.28, 0]);
       ctx.save();
       ctx.translate(shadow.x, shadow.y + 3);
@@ -207,20 +264,12 @@
       ctx.fillRect(-shadowSize, -shadowSize, shadowSize * 2, shadowSize * 2);
       ctx.restore();
 
-      projectedFaces = [];
-      for (const surface of surfaces) {
-        const [nx, ny, nz] = surface.normal;
-        if (nx * sinYaw * cosPitch + ny * sinPitch + nz * cosYaw * cosPitch <= 0) continue;
-        const points = surface.points.map(project);
-        const depth = points.reduce((sum, point) => sum + point.depth, 0) / points.length;
-        projectedFaces.push({ surface, points, depth });
-      }
-      projectedFaces.sort((a, b) => a.depth - b.depth);
-
+      projectedFaces = cameraFaces();
       for (const { surface, points } of projectedFaces) {
         trace(ctx, points);
-        ctx.fillStyle = surface.color;
+        ctx.fillStyle = surface.unit ? '#d8f0a1e6' : surface.color;
         ctx.fill();
+        if (surface.unit || !surface.details) continue;
         const [origin, right, , top] = surface.points;
         function onFace(u, v) {
           return project(origin.map((value, axis) => value + (right[axis] - value) * u + (top[axis] - value) * v));
@@ -233,7 +282,7 @@
         const { floor } = surface;
         if (!floor) continue;
         let tint;
-        if (floor === selected) tint = availableFloors.has(floor) ? '#d6f298b5' : '#b5d9caa0';
+        if (floor === selected) tint = availableFloors.has(floor) ? (selectedUnit ? '#d6f29840' : '#d6f298b5') : '#b5d9caa0';
         else if (floor === hovered) tint = '#c2f5d294';
         else if (!selected && availableFloors.has(floor)) tint = '#b8f2cc29';
         if (tint) {
@@ -263,7 +312,7 @@
     function pick(x, y) {
       for (let i = projectedFaces.length - 1; i >= 0; i--) {
         const face = projectedFaces[i];
-        if (contains(face.points, x, y)) return face.surface.floor;
+        if (contains(face.points, x, y)) return face.surface.floor || null;
       }
       return null;
     }
@@ -282,11 +331,13 @@
     }
 
     function moveTo(view) {
+      const difference = Math.atan2(Math.sin(view.yaw - camera.yaw), Math.cos(view.yaw - camera.yaw));
+      const destination = { ...view, yaw: camera.yaw + difference };
       if (reduceMotion.matches) {
-        Object.assign(camera, view);
+        Object.assign(camera, destination);
         reportZoom();
       } else {
-        flight = { from: { ...camera }, to: view, start: performance.now() };
+        flight = { from: { ...camera }, to: destination, start: performance.now() };
       }
       setHover(null);
       redraw();
@@ -302,8 +353,8 @@
         case 'in': camera.zoom = clamp(camera.zoom * 1.24, minZoom, maxZoom); break;
         case 'out': camera.zoom = clamp(camera.zoom / 1.24, minZoom, maxZoom); break;
         case 'aerial': moveTo({ yaw: camera.yaw, pitch: 1.12, zoom: .14 }); return;
-        case 'model': moveTo({ ...initialView, yaw: camera.yaw }); return;
-        case 'rear': moveTo({ yaw: -2.65, pitch: .70, zoom: .83 }); return;
+        case 'model': moveTo(closeView); return;
+        case 'rear': moveTo(rearView); return;
         case 'reset': moveTo(initialView); return;
       }
       reportZoom();
@@ -387,6 +438,15 @@
     resize();
     return {
       changeView,
+      showUnit(id) {
+        selectedUnit = id;
+        if (id) moveTo(unitPositions[id].angle);
+        else redraw();
+      },
+      setNeighbours(footprints) {
+        neighbours = neighbourhoodFaces(footprints);
+        redraw();
+      },
       select(floor) {
         selected = floor;
         redraw();

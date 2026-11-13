@@ -2,8 +2,16 @@ const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const planDirectory = 'https://www.hiltonimoveis.com.br/developments/five-ponta-verde/plans/';
 const units = [
-  { id: '1103', wing: 'Ala posterior', area: 45.9, price: 1279070, plan: 'planta-terminacao-03.webp' },
-  { id: '1108', wing: 'Ala da orla', area: 57.5, price: 1250943, plan: 'planta-terminacoes-07-19.webp' }
+  {
+    id: '1103', wing: 'Ala posterior', area: 45.9, price: 1279070, plan: 'planta-terminacao-03.webp',
+    layout: 'Planta mais estreita, com um recorte diagonal entre a sala e a suíte.',
+    orientation: 'Ala posterior · orla para baixo'
+  },
+  {
+    id: '1108', wing: 'Ala da orla', area: 57.5, price: 1250943, plan: 'planta-terminacoes-07-19.webp',
+    layout: 'Planta mais larga, com sala e suíte lado a lado e varanda junto à sala.',
+    orientation: 'Ala da orla · orla para baixo'
+  }
 ];
 const photographs = [
   {
@@ -47,7 +55,11 @@ let selectedPhoto = null;
 const canvas = $('#building-canvas');
 const tooltip = $('#floor-tooltip');
 const pin = $('#site-pin');
+const floorChip = $('.floor-chip');
+const planStage = $('#plan-stage');
+const unitPin = $('#unit-pin');
 const beachLabel = $('#beach-label');
+const avenueLabel = $('#avenue-label');
 const groundImage = $('#satellite-ground');
 const sceneLabel = $('#scene-label');
 const aerialGallery = $('#aerial-gallery');
@@ -63,22 +75,26 @@ const model = window.createBuilding(canvas, {
     originX: -5,
     originZ: 24
   },
-  onPosition({ tower, beach, width, height }) {
-    pin.hidden = activeView !== 'aerial';
-    beachLabel.hidden = pin.hidden || beach.x < 75 || beach.x > width - 75
-      || beach.y < 70 || beach.y > height - 110
-      || Math.hypot(beach.x - tower.x, beach.y - tower.y) < 86;
-    if (!beachLabel.hidden) {
-      beachLabel.style.left = beach.x + 'px';
-      beachLabel.style.top = beach.y + 'px';
+  onPosition({ tower, floor, unit, beach, avenue, width, height }) {
+    const aerial = activeView === 'aerial';
+    pin.hidden = !aerial;
+    if (aerial) place(pin, tower, 72, width - 72, 96, height - 78);
+    floorChip.classList.toggle('floor-chip-anchored', !aerial);
+    if (!aerial) place(floorChip, floor, 62, width - 44, 65, height - 88, 13);
+    unitPin.hidden = !unit || aerial;
+    if (!unitPin.hidden) place(unitPin, unit, 26, width - 26, 79, height - 86, 0, -10);
+
+    for (const [label, point] of [[beachLabel, beach], [avenueLabel, avenue]]) {
+      label.hidden = point.x < 65 || point.x > width - 65 || point.y < 80 || point.y > height - 54
+        || (Math.abs(point.x - width / 2) < 175 && point.y > height - 98)
+        || Math.hypot(point.x - tower.x, point.y - tower.y) < 56
+        || Math.hypot(point.x - floor.x, point.y - floor.y) < 49;
+      if (!label.hidden) place(label, point, 0, width, 0, height);
     }
-    if (pin.hidden) return;
-    pin.style.left = Math.max(72, Math.min(width - 72, tower.x)) + 'px';
-    pin.style.top = Math.max(96, tower.y) + 'px';
   },
   onSelect(floor) {
     if (floor === '11') {
-      setView('plan', { focusTab: true });
+      openPlan(true);
       return;
     }
     model.select(floor);
@@ -107,28 +123,57 @@ if (groundImage.complete && !groundImage.naturalWidth) reportUnavailableImagery(
 $('#model-controls').hidden = !model;
 $('#angle-button').hidden = !model;
 model?.select('11');
+if (model) {
+  fetch('aerial/osm-buildings.json')
+    .then(response => response.ok ? response.json() : [])
+    .then(footprints => {
+      model.setNeighbours(footprints);
+      $('#osm-credit').hidden = !footprints.length;
+    })
+    .catch(() => {});
+}
+
+function place(element, point, minX, maxX, minY, maxY, offsetX = 0, offsetY = 0) {
+  element.style.left = Math.max(minX, Math.min(maxX, point.x + offsetX)) + 'px';
+  element.style.top = Math.max(minY, Math.min(maxY, point.y + offsetY)) + 'px';
+}
 
 function setView(view, { focusTab = false, cameraAction } = {}) {
-  const previousView = activeView;
   activeView = view;
-  $('#model-stage').hidden = view === 'plan';
-  $('#plan-stage').hidden = view !== 'plan';
+  const showPlan = view === 'plan';
+  planStage.hidden = !showPlan;
+  $('#units-floor').hidden = showPlan;
+  $('#units-title').classList.toggle('sr-only', showPlan);
+  $('.units-intro').hidden = showPlan;
+  $('#unit-list').hidden = showPlan;
+  $('#unit-detail').hidden = !selectedUnit || !showPlan;
+  floorChip.setAttribute('aria-expanded', String(showPlan));
+  floorChip.setAttribute('aria-label', (showPlan ? 'Fechar' : 'Abrir') + ' planta do 11º pavimento');
   for (const button of $$('.view-switch [data-view]')) {
     button.setAttribute('aria-pressed', String(button.dataset.view === view));
   }
   tooltip.hidden = true;
-  if (view !== 'plan') {
-    model?.select('11');
-    if (cameraAction || previousView !== view) model?.changeView(cameraAction || view);
-    $('#floor-status').textContent = view === 'aerial'
-      ? 'Arraste para girar · Clique no marcador para aproximar'
-      : 'Arraste para girar · Clique no 11º pavimento';
-  }
+  model?.select('11');
+  if (!showPlan) model?.showUnit(null);
+  if (cameraAction || view !== 'plan') model?.changeView(cameraAction || view);
+  $('#floor-status').textContent = view === 'aerial'
+    ? 'Arraste para girar · Clique no marcador para aproximar'
+    : showPlan ? 'Selecione uma unidade na planta' : 'Arraste para girar · Explore o 11º pavimento';
   if (focusTab) $('.view-switch [data-view="' + view + '"]').focus({ preventScroll: true });
+}
+
+function openPlan(moveFocus) {
+  const wasOpen = activeView === 'plan';
+  setView('plan', { cameraAction: !wasOpen && !selectedUnit ? 'model' : undefined });
+  if (selectedUnit) focusUnitInScene(selectedUnit);
+  if (!moveFocus) return;
+  $('#plan-title').focus({ preventScroll: true });
+  if (mediaSmall.matches) planStage.scrollIntoView({ block: 'nearest' });
 }
 
 pin.addEventListener('click', () => {
   setView('model', { focusTab: true });
+  updateAngleButton(false);
 });
 aerialGallery.addEventListener('toggle', () => {
   if (aerialGallery.open && selectedPhoto === null) showPhotograph(0);
@@ -147,7 +192,7 @@ $('#unit-list').innerHTML = units.map(unit => `
 
 function selectUnit(id, fromPlan) {
   selectedUnit = units.find(unit => unit.id === id);
-  setView('plan');
+  openPlan(false);
   const detail = $('#unit-detail');
   detail.innerHTML = `
     <div class="detail-head">
@@ -159,17 +204,38 @@ function selectUnit(id, fromPlan) {
       <div><dt>Quartos</dt><dd>1 suíte</dd></div>
       <div><dt>Preço anunciado em 02/07/2026</dt><dd>${priceFormat.format(selectedUnit.price)}</dd></div>
     </dl>
-    ${unitPlanLink(selectedUnit, 'Ver planta publicada')}`;
+    <div class="unit-detail-links">
+      ${unitPlanLink(selectedUnit, 'Ver planta publicada')}
+      <button type="button" class="jump-to-model">Ver no 3D ↑</button>
+    </div>`;
   detail.hidden = false;
   for (const button of $$('[data-unit]')) {
     button.setAttribute('aria-pressed', String(button.dataset.unit === id));
   }
   renderFavourite();
   $('#save-unit').addEventListener('click', toggleFavourite);
+  $('.jump-to-model').addEventListener('click', () => {
+    focusUnitInScene(selectedUnit);
+    canvas.focus({ preventScroll: true });
+    $('.viewer').scrollIntoView({ block: 'start' });
+  });
   if (fromPlan) {
     detail.querySelector('h3').focus({ preventScroll: true });
     if (mediaSmall.matches) detail.scrollIntoView({ block: 'nearest' });
   }
+}
+
+function focusUnitInScene(unit) {
+  model?.showUnit(unit.id);
+  unitPin.textContent = unit.id;
+  $('#floor-status').textContent = 'Unidade ' + unit.id + ' · ' + unit.wing;
+  updateAngleButton(unit.id === '1103');
+}
+
+function updateAngleButton(showWaterfront) {
+  const button = $('#angle-button');
+  button.dataset.camera = showWaterfront ? 'model' : 'rear';
+  button.firstChild.textContent = showWaterfront ? 'Ver fachada da orla ' : 'Ver ala posterior ';
 }
 
 function renderFavourite() {
@@ -216,10 +282,25 @@ const comparisonRows = [
   ['Posição', unit => unit.wing],
   ['Área privativa', unit => formatArea(unit.area)],
   ['Quartos', () => '1 suíte'],
-  ['Preço anunciado', unit => priceFormat.format(unit.price)],
-  ['Planta', unit => unitPlanLink(unit, 'Ver planta ' + unit.id)]
+  ['Preço anunciado', unit => priceFormat.format(unit.price)]
 ];
-$('#compare-summary').textContent = 'A unidade 1108 tem ' + formatArea(units[1].area - units[0].area) + ' a mais de área privativa.';
+const areaDifference = units[1].area - units[0].area;
+$('#compare-summary').textContent = 'A unidade 1108 tem ' + formatArea(areaDifference)
+  + ' a mais de área privativa (' + new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 1 }).format(areaDifference / units[0].area) + ').';
+$('#compare-plans').innerHTML = units.map(unit => `
+  <figure class="compare-plan">
+    <figcaption><strong>${unit.id}</strong><span>${formatArea(unit.area)}</span></figcaption>
+    <div class="compare-diagram" role="img" aria-label="Contorno aproximado da unidade ${unit.id}. ${unit.orientation}. ${unit.layout}">
+      <div class="compare-footprint compare-footprint-${unit.id}">
+        <span class="room-label room-living">Sala</span>
+        <span class="room-label room-suite">Suíte</span>
+        ${unit.id === '1108' ? '<span class="room-label room-balcony">Varanda</span>' : ''}
+      </div>
+      <span class="compare-diagram-coast">↓ Orla</span>
+    </div>
+    <p>${unit.layout}</p>
+    ${unitPlanLink(unit, 'Ver desenho publicado')}
+  </figure>`).join('');
 $('#compare-content').innerHTML = `
   <table class="compare-table">
     <thead><tr><th scope="col">Característica</th>${units.map(unit => '<th scope="col">' + unit.id + '</th>').join('')}</tr></thead>
@@ -229,7 +310,17 @@ $('#compare-content').innerHTML = `
   </table>`;
 
 for (const button of $$('[data-view]')) {
-  button.addEventListener('click', () => setView(button.dataset.view, { focusTab: button.classList.contains('floor-chip') }));
+  button.addEventListener('click', () => {
+    if (button.dataset.view !== 'plan') {
+      setView(button.dataset.view);
+      updateAngleButton(false);
+    } else if (button === floorChip && activeView === 'plan') {
+      setView('model');
+      updateAngleButton(false);
+    } else {
+      openPlan(true);
+    }
+  });
 }
 for (const button of $$('[data-unit]')) {
   button.addEventListener('click', () => selectUnit(button.dataset.unit, button.classList.contains('plan-unit')));
@@ -237,14 +328,16 @@ for (const button of $$('[data-unit]')) {
 for (const button of $$('[data-camera]')) {
   button.addEventListener('click', () => {
     const action = button.dataset.camera;
-    if (action !== 'rear' && action !== 'reset') {
+    if (!['rear', 'model', 'reset'].includes(action)) {
       model?.changeView(action);
       return;
     }
-    setView('model', { cameraAction: action });
-    const angleButton = $('#angle-button');
-    angleButton.dataset.camera = action === 'rear' ? 'reset' : 'rear';
-    angleButton.firstChild.textContent = action === 'rear' ? 'Ver fachada da orla ' : 'Ver ala posterior ';
+    if (activeView === 'plan') {
+      model?.changeView(action);
+    } else {
+      setView('model', { cameraAction: action });
+    }
+    updateAngleButton(action === 'rear');
   });
 }
 for (const button of $$('[data-photo]')) {

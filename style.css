@@ -26,7 +26,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; line-height: .98; }
   display: flex;
   align-items: center;
   gap: clamp(14px, 4vw, 55px);
-  min-height: 65px;
+  min-height: 58px;
   padding: 8px clamp(18px, 4.5vw, 74px);
   color: #f2f1e4;
   background: var(--forest);
@@ -37,7 +37,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; line-height: .98; }
 .header-location { color: #c3d4cb; font-size: .86rem; }
 .header-link { margin-left: auto; font-size: .85rem; }
 main { width: min(100% - clamp(36px, 9vw, 148px), 1480px); margin: 0 auto; }
-.intro { display: flex; justify-content: space-between; align-items: end; gap: 10px; padding: 18px 0 16px; }
+.intro { display: flex; justify-content: space-between; align-items: end; gap: 10px; padding: 15px 0 14px; }
 .eyebrow { color: var(--muted); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; }
 h1 { font-size: clamp(3.7rem, 6vw, 7.2rem); letter-spacing: -.028em; margin: 3px 0 7px; }
 .address, .project-note { color: var(--muted); }
@@ -66,7 +66,7 @@ h1 { font-size: clamp(3.7rem, 6vw, 7.2rem); letter-spacing: -.028em; margin: 3px
 .map-link { font-size: .85rem; white-space: nowrap; }
 .model-stage, .plan-stage { position: relative; min-height: 425px; }
 .model-stage {
-  height: clamp(425px, calc(100svh - 295px), 770px);
+  height: clamp(430px, calc(100svh - 283px), 780px);
   overflow: hidden;
   background: #153b43;
   isolation: isolate;
@@ -222,7 +222,7 @@ dialog::backdrop { background: #081e1acc; }
 @media (max-width: 800px) {
   .workspace { grid-template-columns: minmax(0, 1fr); }
   .model-stage, .plan-stage { min-height: 0; }
-  .model-stage { height: clamp(410px, 61vh, 590px); }
+  .model-stage { height: clamp(390px, 58svh, 570px); }
   .plan-stage { min-height: 400px; }
   .aerial-figure img, .aerial-fallback { height: auto; aspect-ratio: 1.55; }
   .unit-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -286,4 +286,111 @@ dialog::backdrop { background: #081e1acc; }
 @media (max-width: 800px) {
   .scene-credit { bottom: 5px; right: 5px; }
   .model-bottom { bottom: 29px; }
+}
+
+.model-meta { pointer-events: none; }
+.angle-button { pointer-events: auto; }
+.floor-chip-anchored {
+  z-index: 2;
+  right: auto;
+  min-width: 51px;
+  min-height: 39px;
+  transform: translateY(-50%);
+  box-shadow: 0 2px 9px #062320aa;
+}
+.floor-chip-anchored::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  width: 13px;
+  top: 50%;
+  border-top: 1px solid var(--lime);
+}
+.floor-chip-anchored .floor-chip-label { display: none; }
+.floor-chip[aria-expanded="true"] { background: var(--lime); color: #1a3926; }
+.unit-pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  z-index: 1;
+  background: var(--lime);
+  color: #193124;
+  padding: 3px 7px;
+  font-size: .77rem;
+  font-weight: 700;
+  border-radius: 4px;
+  box-shadow: 0 2px 7px #062320aa;
+  pointer-events: none;
+}
+.unit-pin::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: calc(50% - 5px);
+  border: 5px solid transparent;
+  border-top-color: var(--lime);
+}
+.scene-credit { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+.residences .plan-stage {
+  min-height: 0;
+  margin: 0 0 16px;
+  padding: 13px 11px 9px;
+  color: #f5f4e8;
+  border-radius: 8px;
+}
+.residences .plan-stage h2 { margin: 1px 0 4px; font-size: clamp(1.85rem, 3vw, 2.85rem); }
+.plan-stage h2:focus { outline: none; }
+.residences .plan { aspect-ratio: 1.25; }
+.residences .plan-unit { min-height: 30px; font-size: .72rem; }
+.residences .plan-footer { font-size: .68rem; }
+#compare-dialog { width: min(770px, calc(100% - 30px)); }
+.compare-plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.compare-plan { border: 1px solid #d8dcd0; border-radius: 8px; padding: 11px; background: #f2f2e8; }
+.compare-plan figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; flex-wrap: wrap; }
+.compare-plan figcaption strong { font-size: 1.24rem; }
+.compare-plan figcaption span { font-size: .85rem; }
+.compare-diagram {
+  position: relative;
+  width: min(100%, 185px);
+  aspect-ratio: 208 / 260;
+  margin: 5px auto;
+  background: repeating-linear-gradient(0deg, transparent 0 14px, #d9ded1 14px 15px);
+}
+/* Both outlines use coordinates from the same image of the typical floor. */
+.compare-footprint { position: absolute; inset: 0; background: #526f53; color: #fff; }
+.compare-footprint-1103 {
+  clip-path: polygon(21.4% 4%, 78.6% 4%, 78.6% 91.7%, 21.4% 91.7%, 21.4% 56%, 36% 43.8%, 21.4% 32%);
+  background: linear-gradient(41deg, #526f53 0 45%, #dce3cc 45% 46%, #6c8568 46% 100%);
+}
+.compare-footprint-1108 {
+  clip-path: polygon(8.7% 15%, 91.3% 15%, 91.3% 87.7%, 8.7% 87.7%);
+  background:
+    linear-gradient(#a8bf97, #a8bf97) left 15% top 85.9% / 41% 13% no-repeat,
+    linear-gradient(90deg, #6c8568 0 54%, #dce3cc 54% 55%, #526f53 55% 100%);
+}
+.room-label { position: absolute; transform: translate(-50%, -50%); font-size: clamp(.62rem, 1.2vw, .74rem); font-weight: 600; }
+.compare-footprint-1103 .room-living { left: 53%; top: 27%; }
+.compare-footprint-1103 .room-suite { left: 47%; top: 72%; }
+.compare-footprint-1108 .room-living { left: 32%; top: 52%; }
+.compare-footprint-1108 .room-suite { left: 73%; top: 52%; }
+.room-balcony { left: 32%; top: 80%; color: #223626; }
+.compare-diagram-coast { position: absolute; bottom: 0; width: 100%; text-align: center; font-size: .73rem; color: var(--muted); }
+.compare-plan p, .compare-plan-note { font-size: .79rem; color: var(--muted); }
+.compare-plan-note { margin: 8px 0 6px; }
+.compare-plan .plan-link { font-size: .77rem; }
+@media (max-width: 800px) {
+  .residences .plan { max-width: 415px; }
+}
+@media (max-width: 480px) {
+  .compare-plan { padding: 7px; }
+  .compare-plans { gap: 6px; }
+  .scene-credit { font-size: .60rem; gap: 4px; }
+}
+
+.unit-detail-links { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
+.jump-to-model { display: none; border: 0; padding: 5px 0; background: transparent; font-size: .85rem; text-decoration: underline; text-underline-offset: .22em; }
+@media (min-width: 801px) {
+  .viewer { position: sticky; top: 8px; }
+}
+@media (max-width: 800px) {
+  .jump-to-model { display: inline-block; }
 }
