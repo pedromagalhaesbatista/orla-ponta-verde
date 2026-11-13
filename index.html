@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=five-6">
-  <script src="building.js?v=five-6" defer></script>
-  <script src="app.js?v=five-6" defer></script>
+  <link rel="stylesheet" href="style.css?v=five-7">
+  <script src="building.js?v=five-7" defer></script>
+  <script src="app.js?v=five-7" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -28,16 +28,22 @@
         <div class="viewer-bar">
           <div class="view-switch" role="group" aria-label="Modo de visualização">
             <button type="button" data-view="model" aria-pressed="true" aria-controls="model-stage">Edifício 3D</button>
-            <button type="button" data-view="plan" aria-pressed="false" aria-controls="plan-stage">Planta</button>
             <button type="button" data-view="aerial" aria-pressed="false" aria-controls="model-stage">Entorno</button>
           </div>
-          <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=Edif%C3%ADcio%20Five%20Flex%20Life%2C%20Avenida%20Silvio%20Carlos%20Viana%201811%2C%20Macei%C3%B3" target="_blank" rel="noopener">Mapa <span aria-hidden="true">↗</span></a>
+          <div class="viewer-links">
+            <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=Edif%C3%ADcio%20Five%20Flex%20Life%2C%20Avenida%20Silvio%20Carlos%20Viana%201811%2C%20Macei%C3%B3" target="_blank" rel="noopener">Mapa <span aria-hidden="true">↗</span></a>
+            <button type="button" class="panel-button" id="panel-toggle" aria-controls="sheet-content" aria-expanded="true">Recolher painel</button>
+          </div>
         </div>
 
         <div id="model-stage" class="model-stage">
           <img id="satellite-ground" class="satellite-ground" src="aerial/ponta-verde-cbers.jpg?v=five-6" width="1152" height="1152" alt="">
           <canvas id="building-canvas" tabindex="0" aria-label="Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde" aria-describedby="model-instructions"></canvas>
-          <button type="button" class="site-pin" id="site-pin" aria-label="Aproximar de Five Flex Life" hidden><span>Five Flex Life</span></button>
+          <button type="button" class="site-pin" id="site-pin" aria-label="Aproximar de Five Flex Life" hidden>Five Flex Life</button>
+          <div class="compass" id="compass" role="img" aria-label="Rumo da câmera: norte" hidden>
+            <span class="compass-dial" aria-hidden="true"><b>N</b><i></i></span>
+            <span id="camera-heading" aria-hidden="true">N</span>
+          </div>
           <p id="model-instructions" class="sr-only">Arraste para girar. No teclado, use as setas para girar e mais ou menos para aproximar ou afastar. Entorno amplia a vista da orla e o botão Five Flex Life aproxima o edifício. Selecione 1103 ou 1108 na fachada. O botão 11º pavimento abre a planta.</p>
           <p class="model-fallback" id="model-fallback" hidden>Maquete indisponível. Selecione Planta para explorar o 11º pavimento.</p>
           <span class="scene-landmark" id="beach-label" hidden>Praia de Ponta Verde</span>
@@ -47,13 +53,26 @@
           <div id="sim-view" class="sim-view" hidden>
             <p><strong>Vista simulada · 1108</strong><span>Posição aproximada no 11º pavimento · Maquete e satélite</span></p>
             <button type="button" id="exit-sim">Voltar ao edifício</button>
+            <div class="sim-inset">
+              <canvas width="208" height="244" id="sim-orientation" role="img" aria-label="Posição aproximada da câmera na varanda da 1108 e direção da orla"></canvas>
+              <div>
+                <strong>Varanda da 1108</strong>
+                <span>Posição e direção da câmera</span>
+                <a href="https://www.youtube.com/watch?v=blCQvmzeiV0" target="_blank" rel="noopener">Sobrevoo de Ponta Verde ↗</a>
+              </div>
+            </div>
           </div>
           <div class="model-meta">
             <span class="model-label" id="scene-label">Maquete sobre imagem de satélite</span>
-            <button type="button" class="angle-button" id="angle-button" data-camera="rear">Ver ala posterior <span aria-hidden="true">↻</span></button>
+            <div class="scene-presets" role="group" aria-label="Vistas do edifício">
+              <button type="button" data-preset="orla" aria-pressed="true">Orla</button>
+              <button type="button" data-preset="entrance" aria-pressed="false">Entrada</button>
+              <button type="button" data-preset="rear" aria-pressed="false">Ala posterior</button>
+            </div>
+            <button type="button" class="angle-button" id="site-entrance" data-camera="entrance" hidden>Acesso pela avenida</button>
             <button type="button" class="angle-button" id="rotate-to-unit" hidden>Girar até a unidade <span aria-hidden="true">↻</span></button>
           </div>
-          <button type="button" class="floor-chip" data-view="plan" aria-controls="plan-stage" aria-expanded="false" aria-label="Abrir planta do 11º pavimento"><b>11º</b><span class="floor-chip-label">Pavimento</span><span aria-hidden="true">↗</span></button>
+          <button type="button" class="floor-chip" aria-controls="plan-stage" aria-expanded="false" aria-label="Abrir planta do 11º pavimento"><b>11º</b><span class="floor-chip-label">Pavimento</span><span aria-hidden="true">↗</span></button>
           <output id="floor-tooltip" class="floor-tooltip" aria-hidden="true" hidden></output>
         </div>
         <div class="viewer-footer">
@@ -69,7 +88,7 @@
         </div>
       </section>
 
-      <aside class="residences" aria-labelledby="units-title">
+      <aside class="residences" id="unit-panel" aria-labelledby="units-title">
         <div class="sheet-header" id="sheet-header" hidden>
           <div>
             <span id="sheet-selection">11º pavimento</span>
@@ -128,7 +147,8 @@
           </section>
           <section id="compare-panel" role="tabpanel" aria-labelledby="tab-compare" hidden>
             <p id="compare-panel-summary"></p>
-            <div id="compare-panel-plans" class="compare-plans"></div>
+            <div class="plan-viewport" tabindex="0" aria-label="Plantas em comparação"><div id="compare-panel-plans" class="compare-plans"></div></div>
+            <div class="plan-zoom" role="group" aria-label="Zoom das duas plantas" data-plan-zoom="compare"></div>
             <button type="button" id="expand-compare" class="compare-button">Ampliar comparação <span aria-hidden="true">↗</span></button>
             <button type="button" class="text-button" id="copy-panel-compare">Copiar link da comparação</button>
           </section>
@@ -160,14 +180,16 @@
     <footer class="sources" id="fontes">
       <h2>Fontes e créditos</h2>
       <p>Planta de navegação e maquete produzidas para esta demonstração. Demonstração independente. Dados das unidades consultados na tabela de 02/07/2026. Preços e disponibilidade podem ter mudado.</p>
-      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), recortada, reprojetada e com cores ajustadas. A fachada e a planta de navegação seguem as referências publicadas. O desenho das ruas, da ciclovia e dos volumes vizinhos usa dados do OpenStreetMap. A maquete, as larguras das vias e as alturas dos edifícios são aproximadas. As alturas usam os dados disponíveis e estimativas por tipo de edifício. A vista da unidade 1108 é uma simulação a partir de uma posição aproximada na maquete.</p>
+      <p>Imagem CBERS-4A/WPM de 02/10/2026 (INPE), recortada, reprojetada e com cores ajustadas. A fachada e a implantação aproximadas seguem as perspectivas da Coutinho e o estudo da UFAL. As ruas, a ciclovia, as áreas verdes e os volumes vizinhos usam dados do OpenStreetMap. As larguras das vias, as alturas dos edifícios e os detalhes das fachadas vizinhas são aproximados. A vista da unidade 1108 é uma simulação a partir de uma posição aproximada na maquete.</p>
       <ul>
         <li><a href="https://data.inpe.br/bdc/stac/v1/collections/CB4A-WPM-PCA-FUSED-1/items/CBERS4A_WPM_PCA_RGB321_20261002_192_125" target="_blank" rel="noopener">Imagem de satélite · INPE ↗</a></li>
         <li><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">Edifícios e vias · OpenStreetMap, ODbL ↗</a></li>
         <li><a href="aerial/osm-buildings.json">Contornos dos edifícios ↓</a></li>
         <li><a href="aerial/osm-streets.json">Geometria das vias ↓</a></li>
+        <li><a href="aerial/osm-parks.json">Áreas verdes do entorno ↓</a></li>
         <li><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">Licença da imagem · CC BY 4.0 ↗</a></li>
         <li><a href="https://coutinhoincorporacoes.com.br/empreendimentos/eef93708-9dc0-45ea-bf3e-68d5dec86f73" target="_blank" rel="noopener">Coutinho Incorporações ↗</a></li>
+        <li><a href="https://www.repositorio.ufal.br/jspui/handle/123456789/15662" target="_blank" rel="noopener">Implantação · UFAL, ficha 27 ↗</a></li>
         <li><a href="https://www.hiltonimoveis.com.br/empreendimentos/five-ponta-verde" target="_blank" rel="noopener">Hilton Imóveis ↗</a></li>
         <li><a href="https://maceio.al.gov.br/noticias/semtur/ponta-verde-e-eleita-uma-das-melhores-praias-da-america-do-sul" target="_blank" rel="noopener">Foto aérea da Prefeitura de Maceió ↗</a></li>
       </ul>
@@ -183,12 +205,22 @@
       <form method="dialog"><button class="close-button" aria-label="Fechar comparação" autofocus>×</button></form>
     </div>
     <p id="compare-summary" class="compare-summary"></p>
-    <div id="compare-plans" class="compare-plans"></div>
+    <div class="plan-viewport" tabindex="0" aria-label="Plantas em comparação"><div id="compare-plans" class="compare-plans"></div></div>
+    <div class="plan-zoom" role="group" aria-label="Zoom das duas plantas" data-plan-zoom="compare"></div>
     <p class="compare-plan-note">Plantas esquemáticas na mesma escala gráfica aproximada. Portas, janelas e ambientes seguem as tipologias publicadas. As plantas não informam áreas por ambiente.</p>
     <div id="compare-content"></div>
     <button type="button" class="text-button" id="copy-compare">Copiar link da comparação</button>
     <output id="compare-share-status" class="share-status" aria-live="polite"></output>
     <p class="snapshot-note">Valores anunciados em 02/07/2026. Consulte a imobiliária para preço e disponibilidade atuais.</p>
+  </dialog>
+  <dialog id="plan-dialog" aria-labelledby="large-plan-title">
+    <div class="dialog-top">
+      <h2 id="large-plan-title">Planta da unidade</h2>
+      <form method="dialog"><button class="close-button" aria-label="Fechar planta" autofocus>×</button></form>
+    </div>
+    <div class="plan-viewport" tabindex="0" aria-label="Planta ampliada"><div id="large-plan-image" class="plan-image"></div></div>
+    <div class="plan-zoom" role="group" aria-label="Zoom da planta ampliada" data-plan-zoom="large"></div>
+    <p class="compare-plan-note">Desenho esquemático baseado na tipologia publicada.</p>
   </dialog>
 </body>
 </html>

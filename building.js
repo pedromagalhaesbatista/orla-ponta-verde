@@ -1,11 +1,15 @@
 (() => {
-  const initialView = { yaw: -.24, pitch: .94, zoom: .43 };
-  const closeView = { yaw: -.29, pitch: .62, zoom: .88 };
-  const rearView = { yaw: -1.78, pitch: .78, zoom: .82 };
+  const initialView = { yaw: -.31, pitch: .49, zoom: .60, target: 4.55 };
+  const unitView = { yaw: -.31, pitch: .53, zoom: .90, target: 5.5 };
+  const entranceView = { yaw: .34, pitch: .38, zoom: 1.27, target: 2.7 };
+  const rearView = { yaw: -1.54, pitch: .72, zoom: .82, target: 5.4 };
+  const aerialView = { yaw: -.25, pitch: 1.10, zoom: .25 };
+  const towerFootprint = [[-4.48,-1.08],[-3.16,-1.08],[-3.16,-5.45],[-1.48,-5.45],
+    [-1.48,-1.08],[4.62,-1.08],[4.62,2.56],[-4.48,2.56]];
   const floorHeight = floor => 1.62 + (floor - 1) * 1.04;
   const floor11 = floorHeight(11);
   const balconyEye = [-1.03, (floor11 + .60) * .69, 2.38];
-  const unitAngles = { '1103': rearView, '1108': closeView };
+  const unitPresets = { '1103': 'rear', '1108': 'orla' };
   const minZoom = .095;
   const maxZoom = 1.45;
   const fieldOfView = 36;
@@ -67,7 +71,7 @@
     const bayEdges = [-4.25, -3.42, -2.59, -1.76, -.93, -.10, .73, 1.56, 2.39, 3.22, 4.25];
     const darkBays = new Set([0, 3, 6, 9]);
     const railMaterials = ['#8fa2a2', '#728787', '#a9bab5'];
-    const darkCladding = ['#49443f', '#4d4941', '#61594e'];
+    const darkCladding = ['#3b3935', '#4d4941', '#61594e'];
     const balconyInterior = ['#473e34', '#67503c', '#a3815f'];
     function balconyBays(y, floor, id) {
       for (let i = 0; i < bayEdges.length - 1; i++) {
@@ -81,10 +85,11 @@
         }
         box(left, right, y, y + .91, 1.50, 1.65, balconyInterior, id, side =>
           side === 'front' ? [panel(.08, .12, .91, .86, glass[(floor + i) % glass.length]),
-            panel(.54, .12, .57, .86, '#4d4b43')] : []);
+            panel(.09, .61, .90, .85, '#899c9d'), panel(.54, .12, .57, .86, '#4d4b43')] : []);
         box(left, left + .07, y, y + .91, 1.64, 2.27, plaster, id);
         box(left, right, y + .035, y + .34, 2.21, 2.25, railMaterials, id, side =>
-          side === 'front' ? [panel(.48, 0, .51, 1, '#586b68'), panel(0, .84, 1, 1, '#c6d2cc')] : []);
+          side === 'front' ? [panel(.02, .07, .98, .81, '#a9bab7aa'),
+            panel(.48, 0, .51, 1, '#586b68'), panel(0, .84, 1, 1, '#d6e0db')] : []);
       }
     }
 
@@ -103,8 +108,10 @@
     for (const x of [-4.48, -3.22, -1.97, -.52, .79, 2.28, 3.73, 4.38]) {
       box(x, x + .078, .01, .73, 2.25, 2.36, stone);
     }
-    box(-4.64, 4.53, .73, 1.53, -.94, 2.42, bronze, null, podiumSlats);
+    box(-4.64, 4.53, .73, 1.18, -.94, 2.43, bronze, null, podiumSlats);
+    box(-4.48, 4.38, 1.18, 1.52, -.88, 2.02, darkCladding, null, side => glazing(side, 1));
     box(-4.66, 4.55, 1.52, 1.65, -.96, 2.45, stone);
+    box(-2.86, -1.70, .69, .79, 2.35, 2.65, bronze);
     box(-3.12, -1.55, 0, 1.62, -5.40, -.96, bronze);
 
     for (let floor = 1; floor <= 12; floor++) {
@@ -114,6 +121,12 @@
       box(-3.12, -1.49, y + .88, y + 1.04, -4.55, -.84, stone, id);
       box(-4.24, 4.24, y, y + .94, -.72, 1.48, plaster, id, side => windows(side, floor, side === 'back' ? 10 : 3));
       balconyBays(y, floor, id);
+      for (const [left, right, first, last] of [[-4.23,-3.64,4,9],[3.63,4.24,2,7]]) {
+        if (floor < first || floor > last) continue;
+        box(left, right, y, y + 1.04, 2.30, 2.36, bronze, id, side => side === 'front'
+          ? [panel(.10, 0, .90, 1, floor % 2 ? '#91aaaf' : '#789399'), panel(.17, .04, .25, .98, '#bdd1ce')]
+          : []);
+      }
       box(-4.36, 4.36, y + .86, y + 1.04, -.84, 2.30, stone, id);
       box(-.11, .05, y, y + 1.04, 1.48, 2.32, stone, id);
       box(4.18, 4.38, y, y + 1.04, 1.48, 2.32, stone, id);
@@ -146,6 +159,8 @@
       const estimatedMetres = kind === 'apartments' ? 24 : kind === 'residential' ? 10 : 6;
       const top = (height ?? estimatedMetres) / 3.35;
       const base = -.22;
+      const centre = outline.reduce(([x, z], point) => [x + point[0] / outline.length, z + point[1] / outline.length], [0, 0]);
+      const near = Math.hypot(...centre) < 48;
       const signedArea = outline.reduce((area, [x, z], i) => {
         const [nextX, nextZ] = outline[(i + 1) % outline.length];
         return area + x * nextZ - nextX * z;
@@ -157,7 +172,19 @@
         const [nextX, nextZ] = outline[(i + 1) % outline.length];
         const normal = [winding * (nextZ - z), 0, winding * (x - nextX)];
         const color = Math.abs(normal[0]) > Math.abs(normal[2]) ? '#797e79' : '#918b80';
-        faces.push({ points: [[x, base, z], [nextX, base, nextZ], [nextX, top, nextZ], [x, top, z]], normal, color });
+        const columns = Math.min(14, Math.floor(Math.hypot(nextX - x, nextZ - z) * 1.45));
+        const details = [];
+        if (near && columns >= 2 && (kind === 'apartments' || height >= 9)) {
+          const floors = Math.max(1, Math.min(20, Math.round(top)));
+          for (let floor = 0; floor < floors; floor++) {
+            details.push({ u1: 0, v1: (floor + .85) / floors, u2: 1, v2: (floor + .99) / floors, color: '#d7cbbb' });
+            for (let bay = 0; bay < columns; bay++) {
+              details.push({ u1: (bay + .21) / columns, v1: (floor + .21) / floors,
+                u2: (bay + .77) / columns, v2: (floor + .76) / floors, color: bay % 3 === 0 ? '#586e6c' : '#76847e' });
+            }
+          }
+        }
+        faces.push({ points: [[x, base, z], [nextX, base, nextZ], [nextX, top, nextZ], [x, top, z]], normal, color, details });
       }
     }
     return faces;
@@ -185,9 +212,12 @@
     const tower = buildScene();
     let neighbours = [];
     let streets = [];
+    let parks = [];
     let contactOutlines = [];
     let selectedUnit = null;
-    const camera = { ...initialView };
+    const camera = cameraView(initialView);
+    let preset = 'orla';
+    let outlineVisible = false;
     let width = 0;
     let height = 0;
     let frame = 0;
@@ -203,7 +233,7 @@
       if (flight) {
         const progress = Math.min(1, (now - flight.start) / 560);
         const eased = progress * progress * (3 - 2 * progress);
-        for (const key of ['yaw', 'pitch', 'zoom']) {
+        for (const key of ['yaw', 'pitch', 'zoom', 'target']) {
           camera[key] = flight.from[key] + (flight.to[key] - flight.from[key]) * eased;
         }
         if (progress === 1) {
@@ -222,9 +252,9 @@
       const scale = simulation ? Math.min(width, height * 1.8) * .72 / fieldOfView
         : Math.max(5, Math.min((width - 32) / 12.3, (height - 95) / 16.5));
       const distance = fieldOfView / camera.zoom;
-      const target = clamp((camera.zoom - .13) * 8, .5, 5.4);
+      const target = camera.target;
       const centreX = width * .50;
-      const centreY = simulation ? height * .47 : height * (.42 - .13 * camera.zoom);
+      const centreY = simulation ? height * .47 : height * (.37 - .10 * camera.zoom);
 
       function homogeneous(x, y, z) {
         if (simulation) {
@@ -235,7 +265,7 @@
           const depth = ahead * cosPitch - vertical * sinPitch;
           const w = depth / fieldOfView;
           return {
-            x: centreX * w + (dx * cosYaw - dz * sinYaw) * scale,
+            x: centreX * w - (dx * cosYaw - dz * sinYaw) * scale,
             y: centreY * w - (vertical * cosPitch + ahead * sinPitch) * scale,
             w,
             depth: -depth
@@ -290,7 +320,7 @@
         }
       }
       onPosition({
-        tower: project([0, 16.2, 0]),
+        footprint: project([0, -.21, 1.3]),
         floor: project(sinYaw < -.75
           ? [-3.13, floor11 + .56, -4.5]
           : cosYaw < -.30
@@ -299,6 +329,10 @@
         units: unitPoints,
         beach: project([25, -.24, 24]),
         avenue: project([-17, -.24, 13]),
+        entrance: project([-2.24, .1, 2.61]),
+        heading: (simulation ? Math.PI - yaw : -yaw) * 180 / Math.PI,
+        preset,
+        simulationYaw: simulation?.yaw,
         width,
         height
       });
@@ -318,7 +352,17 @@
         }
         return visible.sort((a, b) => a.depth - b.depth);
       }
-      const streetOpacity = simulation ? .74 : clamp((camera.zoom - .33) / .35, 0, .82);
+      for (const outline of parks) {
+        const points = outline.map(([x, z]) => project([x, -.238, z]));
+        if (points.some(point => point.w <= 0)) continue;
+        trace(ctx, points);
+        ctx.fillStyle = '#53734994';
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#bdc39a84';
+        ctx.stroke();
+      }
+      const streetOpacity = simulation ? .55 : clamp((camera.zoom - .20) / .44, 0, .76);
       if (streetOpacity > 0) {
         const streetStyles = {
           primary: { colour: '#5d6060', edge: '#a29b8e', width: 1.46, lanes: true },
@@ -363,18 +407,23 @@
         ctx.restore();
       }
 
-      const towerGround = [[-4.48,-1.08],[4.62,-1.08],[4.62,2.56],[-4.48,2.56]];
-      const towerWing = [[-3.16,-5.45],[-1.48,-5.45],[-1.48,-1.08],[-3.16,-1.08]];
-      for (const outline of simulation ? contactOutlines : [...contactOutlines, towerGround, towerWing]) {
-        const shadow = outline.map(([x,z]) => project([x+.16,-.23,z-.16]));
+      for (const { outline, top } of simulation ? contactOutlines : [...contactOutlines, { outline: towerFootprint, top: 14 }]) {
+        const offsetX = top * .28, offsetZ = top * -.29;
+        const shadow = outline.map(([x,z]) => project([x + offsetX, -.22, z + offsetZ]));
         if (shadow.some(point => point.w <= 0)) continue;
         trace(ctx, shadow);
-        ctx.fillStyle = '#17292548';
-        ctx.shadowColor = '#152c2780';
-        ctx.shadowBlur = 5;
+        for (let index = 0; index < outline.length; index++) {
+          const next = (index + 1) % outline.length;
+          const [x, z] = outline[index], [nx, nz] = outline[next];
+          const start = project([x, -.22, z]), end = project([nx, -.22, nz]);
+          if (start.w <= 0 || end.w <= 0) continue;
+          ctx.moveTo(start.x, start.y);
+          for (const point of [end, shadow[next], shadow[index]]) ctx.lineTo(point.x, point.y);
+          ctx.closePath();
+        }
+        ctx.fillStyle = '#17252154';
         ctx.fill();
       }
-      ctx.shadowBlur = 0;
 
       projectedFaces = simulation ? [] : faces;
       for (const { surface, points } of faces) {
@@ -428,6 +477,17 @@
           ctx.fill();
         }
       }
+      if (outlineVisible && !simulation) {
+        trace(ctx, towerFootprint.map(([x, z]) => project([x, -.10, z])));
+        ctx.strokeStyle = '#183a31';
+        ctx.lineWidth = 6;
+        ctx.stroke();
+        ctx.strokeStyle = '#e7f5aa';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
     }
 
     function redraw() {
@@ -468,9 +528,13 @@
       onViewChange(camera.zoom <= minZoom, camera.zoom >= maxZoom);
     }
 
+    function cameraView(view) {
+      return { ...view, target: view.target ?? clamp((view.zoom - .13) * 6.7, .5, 5.25) };
+    }
+
     function moveTo(view) {
       const difference = Math.atan2(Math.sin(view.yaw - camera.yaw), Math.cos(view.yaw - camera.yaw));
-      const destination = { ...view, yaw: camera.yaw + difference };
+      const destination = { ...cameraView(view), yaw: camera.yaw + difference };
       if (reduceMotion.matches) {
         Object.assign(camera, destination);
         reportZoom();
@@ -484,8 +548,8 @@
     function changeView(action) {
       if (simulation) {
         switch (action) {
-          case 'left': simulation.yaw = clamp(simulation.yaw - .24, -1.12, 1.12); break;
-          case 'right': simulation.yaw = clamp(simulation.yaw + .24, -1.12, 1.12); break;
+          case 'left': simulation.yaw = clamp(simulation.yaw + .24, -1.12, 1.12); break;
+          case 'right': simulation.yaw = clamp(simulation.yaw - .24, -1.12, 1.12); break;
           case 'up': simulation.pitch = clamp(simulation.pitch - .08, -.08, .58); break;
           case 'down': simulation.pitch = clamp(simulation.pitch + .08, -.08, .58); break;
           case 'reset': simulation = { yaw: 0, pitch: .29 }; break;
@@ -494,21 +558,30 @@
         return;
       }
       flight = null;
+      preset = ['orla', 'entrance', 'rear'].includes(action) ? action : ['model', 'reset'].includes(action) ? 'orla' : null;
       switch (action) {
         case 'left': camera.yaw -= Math.PI / 8; break;
         case 'right': camera.yaw += Math.PI / 8; break;
         case 'up': camera.pitch = clamp(camera.pitch + .10, .37, 1.30); break;
         case 'down': camera.pitch = clamp(camera.pitch - .10, .37, 1.30); break;
-        case 'in': camera.zoom = clamp(camera.zoom * 1.24, minZoom, maxZoom); break;
-        case 'out': camera.zoom = clamp(camera.zoom / 1.24, minZoom, maxZoom); break;
-        case 'aerial': moveTo({ yaw: camera.yaw, pitch: 1.12, zoom: .14 }); return;
-        case 'model': moveTo(closeView); return;
+        case 'in': setZoom(camera.zoom * 1.24); break;
+        case 'out': setZoom(camera.zoom / 1.24); break;
+        case 'aerial': moveTo(aerialView); return;
+        case 'entrance': moveTo(entranceView); return;
         case 'rear': moveTo(rearView); return;
+        case 'orla':
+        case 'model':
         case 'reset': moveTo(initialView); return;
       }
       reportZoom();
       setHover(null);
       redraw();
+    }
+
+    function setZoom(value) {
+      const previousTarget = cameraView({ zoom: camera.zoom }).target;
+      camera.zoom = clamp(value, minZoom, maxZoom);
+      camera.target = clamp(camera.target + cameraView({ zoom: camera.zoom }).target - previousTarget, .5, 6.2);
     }
 
     const pointers = new Map();
@@ -543,15 +616,16 @@
         return;
       }
       pointers.set(event.pointerId, current);
+      if (!simulation) preset = null;
       if (simulation) {
         if (!dragged && distance(current, start) < 5) return;
         dragged = true;
-        simulation.yaw = clamp(simulation.yaw - (current.x - previous.x) * .007, -1.12, 1.12);
+        simulation.yaw = clamp(simulation.yaw + (current.x - previous.x) * .007, -1.12, 1.12);
         simulation.pitch = clamp(simulation.pitch - (current.y - previous.y) * .004, -.08, .58);
       } else if (pointers.size === 2) {
         const other = [...pointers.entries()].find(([id]) => id !== event.pointerId)[1];
         const previousGap = distance(previous, other);
-        if (previousGap > 1) camera.zoom = clamp(camera.zoom * distance(current, other) / previousGap, minZoom, maxZoom);
+        if (previousGap > 1) setZoom(camera.zoom * distance(current, other) / previousGap);
         reportZoom();
       } else {
         if (!dragged && distance(current, start) < 5) return;
@@ -592,10 +666,16 @@
     resize();
     return {
       changeView,
+      showFootprint(visible) {
+        outlineVisible = visible;
+        redraw();
+      },
       showUnit(id, { rotate = true } = {}) {
         selectedUnit = id;
-        if (id && rotate) moveTo(unitAngles[id]);
-        else redraw();
+        if (id && rotate) {
+          preset = unitPresets[id];
+          moveTo(preset === 'rear' ? rearView : unitView);
+        } else redraw();
       },
       simulate(enabled) {
         flight = null;
@@ -605,11 +685,15 @@
       },
       setNeighbours(footprints) {
         neighbours = neighbourhoodFaces(footprints);
-        contactOutlines = footprints.map(({ outline }) => outline);
+        contactOutlines = footprints.map(({ outline, height }) => ({ outline, top: (height ?? 10) / 3.35 }));
         redraw();
       },
       setStreets(features) {
         streets = features;
+        redraw();
+      },
+      setParks(features) {
+        parks = features;
         redraw();
       },
       select(floor) {
