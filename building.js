@@ -1,5 +1,5 @@
 (() => {
-  const initialView = { yaw: 0.61, pitch: 0.30, zoom: 1 };
+  const initialView = { yaw: -.73, pitch: .29, zoom: 1 };
   const minZoom = 0.75;
   const maxZoom = 1.65;
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -27,9 +27,8 @@
     const panel = (u1, v1, u2, v2, color) => ({ u1, v1, u2, v2, color });
     const glass = ['#426e69','#5a8881','#4b7d77','#69978c','#4e7a76'];
 
-    function windows(side, floor) {
+    function windows(side, floor, columns) {
       if (side === 'top') return [];
-      const columns = side === 'front' || side === 'back' ? 6 : 4;
       const result = [panel(0, 0, 1, .11, '#dad8cb')];
       for (let i = 0; i < columns; i++) {
         const start = (i + .15) / columns;
@@ -45,42 +44,53 @@
       return result;
     }
 
-    box(-4.6, 4.6, -.23, -.12, -3.5, 3.6, ['#8da398','#819a8c','#bfd0c1']);
-    box(-4.2, 4.2, -.12, 0, -3.12, 3.17, ['#b9b7a8','#a9b0a1','#e4e1d2']);
-    box(-2.95, 2.95, 0, 1.12, -1.85, 1.91, ['#a49981','#7d887b','#dddacc'], null, side => windows(side, 1));
-    box(-3.9, -3.25, 0, .24, -.55, 2.65, garden);
-    box(3.25, 3.85, 0, .24, -.55, 2.65, garden);
-    box(-2.8, 2.8, 0, .07, 2.08, 2.94, ['#a1b6aa','#819d91','#c9d5c5']);
+    function frontWindows(side, floor) {
+      return windows(side, floor, side === 'front' || side === 'back' ? 10 : 3);
+    }
+
+    const rail = ['#91afa5','#79988f','#bad2c7'];
+    function railPanels(side) {
+      if (side !== 'front' && side !== 'back') return [];
+      return Array.from({ length: 9 }, (_, i) => {
+        const position = (i + 1) / 10;
+        return panel(position, 0, position + .004, 1, '#e3e8dc');
+      });
+    }
+
+    box(-5.12, 5.12, -.23, -.12, -4.87, 3.5, ['#8da398','#819a8c','#bfd0c1']);
+    box(-4.90, 4.90, -.12, 0, -4.65, 3.25, ['#b9b7a8','#a9b0a1','#e4e1d2']);
+    box(-4.27, 4.27, 0, 1.12, -.71, 1.91, ['#a49981','#7d887b','#dddacc'], null, side => frontWindows(side, 1));
+    box(-3.0, -1.55, 0, 1.12, -4.0, -.71, ['#a49981','#7d887b','#dddacc']);
+    box(-4.23, 4.23, 0, .09, 2.39, 2.97, ['#a1b6aa','#819d91','#c9d5c5']);
+    box(-.8, 4.13, 0, .12, -3.94, -1.2, garden);
 
     for (let floor = 1; floor <= 12; floor++) {
       const y = 1.12 + (floor - 1) * 1.04;
       const id = String(floor).padStart(2, '0');
-      const setback = floor > 10 ? .18 : 0;
-      box(-2.85 + setback, 2.85 - setback, y, y + .89, -1.76, 1.82, plaster, id, side => windows(side, floor));
-      box(-3.17 + setback, 3.17 - setback, y + .89, y + 1.04, -2.07, 2.31, stone, id);
-      // The glass guard sits at the edge of the projecting balcony.
-      const rail = ['#91afa5','#79988f','#bad2c7'];
-      const railPanels = side => side === 'front' || side === 'back'
-        ? [.17,.34,.51,.68,.85].map(u => panel(u, 0, u + .006, 1, '#e3e8dc'))
-        : [];
-      box(-3.06 + setback, 3.06 - setback, y + .035, y + .27, 2.205, 2.25, rail, id, railPanels);
-      box(-3.06 + setback, 3.06 - setback, y + .035, y + .27, -2.01, -1.965, rail, id, railPanels);
+
+      // The waterfront wing and the deeper perpendicular wing share a floor.
+      box(-3.0, -1.55, y, y + .89, -4.0, -.71, plaster, id, side => windows(side, floor, 3));
+      box(-3.10, -1.45, y + .89, y + 1.04, -4.18, -.84, stone, id);
+      box(-4.24, 4.24, y, y + .89, -.71, 1.82, plaster, id, side => frontWindows(side, floor));
+      box(-4.39, 4.39, y + .89, y + 1.04, -.84, 2.31, stone, id);
+      box(-4.29, 4.29, y + .035, y + .27, 2.205, 2.25, rail, id, railPanels);
     }
 
     const roof = 1.12 + 12 * 1.04;
-    box(-2.85, 2.85, roof, roof + .16, -1.94, 2.16, stone, '12');
-    box(-2.55, 2.55, roof + .16, roof + .22, -1.85, 1.97, ['#d0bb9a','#b39f82','#d9c4a1'], '12');
-    box(-2.62, -2.13, roof + .2, roof + .48, -1.62, 1.75, garden, '12');
-    box(2.13, 2.62, roof + .2, roof + .48, -1.62, 1.75, garden, '12');
+    box(-3.08, -1.48, roof, roof + .16, -4.12, -.84, stone, '12');
+    box(-4.31, 4.31, roof, roof + .16, -.84, 2.16, stone, '12');
+    box(-4.0, 4.0, roof + .16, roof + .22, -.80, 1.97, ['#d0bb9a','#b39f82','#d9c4a1'], '12');
+    box(-2.62, -2.13, roof + .2, roof + .48, -.72, 1.75, garden, '12');
+    box(2.13, 2.62, roof + .2, roof + .48, -.72, 1.75, garden, '12');
     box(-1.65, .52, roof + .2, roof + .27, .5, 1.62, ['#6aa797','#6aa797','#83bdaf'], '12');
     for (const x of [0.72, 2.04]) {
-      for (const z of [-1.35, -.03]) {
+      for (const z of [-.68, .40]) {
         box(x, x + .08, roof + .22, roof + 1.18, z, z + .08, bronze, '12');
       }
     }
     for (let i = 0; i < 6; i++) {
       const x = .68 + i * .29;
-      box(x, x + .10, roof + 1.18, roof + 1.27, -1.5, .16, bronze, '12');
+      box(x, x + .10, roof + 1.18, roof + 1.27, -.78, .58, bronze, '12');
     }
     return surfaces;
   }
@@ -119,7 +129,7 @@
       ctx.clearRect(0, 0, width, height);
       const sinYaw = Math.sin(camera.yaw), cosYaw = Math.cos(camera.yaw);
       const sinPitch = Math.sin(camera.pitch), cosPitch = Math.cos(camera.pitch);
-      const scale = Math.max(5, Math.min((width - 62) / 11.4, (height - 156) / 16.3)) * camera.zoom;
+      const scale = Math.max(5, Math.min((width - 40) / 12.3, (height - 103) / 16.5)) * camera.zoom;
 
       function project([x, y, z]) {
         const ahead = x * sinYaw + z * cosYaw;
@@ -128,7 +138,7 @@
         const perspective = 36 / (36 - depth);
         return {
           x: width * .49 + (x * cosYaw - z * sinYaw) * scale * perspective,
-          y: height * .49 - (vertical * cosPitch - ahead * sinPitch) * scale * perspective,
+          y: height * .475 - (vertical * cosPitch - ahead * sinPitch) * scale * perspective,
           depth
         };
       }
@@ -171,7 +181,7 @@
         const { floor } = surface;
         if (!floor) continue;
         let tint;
-        if (floor === selected) tint = '#8ce5b0aa';
+        if (floor === selected) tint = availableFloors.has(floor) ? '#d6f298b5' : '#b5d9caa0';
         else if (floor === hovered) tint = '#c2f5d294';
         else if (!selected && availableFloors.has(floor)) tint = '#b8f2cc29';
         if (tint) {
@@ -223,6 +233,7 @@
         case 'down': camera.pitch = clamp(camera.pitch - .10, .13, .70); break;
         case 'in': camera.zoom = clamp(camera.zoom * 1.18, minZoom, maxZoom); break;
         case 'out': camera.zoom = clamp(camera.zoom / 1.18, minZoom, maxZoom); break;
+        case 'rear': Object.assign(camera, initialView, { yaw: -2.4, pitch: .46 }); break;
         case 'reset': Object.assign(camera, initialView); break;
       }
       onViewChange(camera.zoom <= minZoom, camera.zoom >= maxZoom);

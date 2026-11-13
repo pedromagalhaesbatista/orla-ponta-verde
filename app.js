@@ -1,111 +1,205 @@
-const $ = (s) => document.querySelector(s);
-const units = [{floor:'12',area:160,rooms:3},{floor:'08',area:142,rooms:3},{floor:'05',area:118,rooms:2},{floor:'03',area:110,rooms:2}];
+const $ = selector => document.querySelector(selector);
+const $$ = selector => [...document.querySelectorAll(selector)];
+const planDirectory = 'https://www.hiltonimoveis.com.br/developments/five-ponta-verde/plans/';
+const units = [
+  { id: '1103', wing: 'Ala posterior', area: 45.9, price: 1279070, plan: 'planta-terminacao-03.webp' },
+  { id: '1108', wing: 'Ala da orla', area: 57.5, price: 1250943, plan: 'planta-terminacoes-07-19.webp' }
+];
+const photographs = [
+  {
+    file: 'ponta-verde-drone.jpg',
+    option: 'Ponta Verde',
+    title: 'Ponta Verde vista por drone · 2021',
+    alt: 'Vista de drone da ponta de Ponta Verde com prédios e luzes da orla ao anoitecer.',
+    author: 'Arthur C A Bezerra',
+    source: 'Foto_de_Macei%C3%B3.jpg'
+  },
+  {
+    file: 'ponta-verde.jpg',
+    option: 'Entardecer',
+    title: 'Ponta Verde ao entardecer · 2016',
+    alt: 'Vista aérea da ponta de Ponta Verde, entre duas enseadas, ao entardecer.',
+    author: 'Ricardo Lêdo',
+    source: 'Vista_da_praia_de_Ponta_Verde.jpg'
+  },
+  {
+    file: 'litoral-maceio.jpg',
+    option: 'Litoral',
+    title: 'Sobrevoo do litoral de Maceió · 2017',
+    alt: 'Litoral de Maceió visto da janela de um avião.',
+    author: 'Hooper2002',
+    source: '1_-_Sobrevoo_sobre_o_Litoral_de_Macei%C3%B3_-_AL.jpg'
+  }
+];
+const storageKey = 'orla-five-flex-life-favourites';
+const areaFormat = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const priceFormat = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const formatArea = value => areaFormat.format(value) + ' m²';
+const mediaSmall = matchMedia('(max-width: 800px)');
 let favourites = new Set();
-try { favourites = new Set(JSON.parse(localStorage.getItem('orla-favourites') || '[]')); } catch (_) {}
-let favouriteOnly = false;
-let selected = null;
-let viewingModel = true;
-const floorFilter = $('#floorFilter');
-const floorTooltip = $('#floorTooltip');
-const floorPreview = $('#floorPreview');
-const floorButtons = document.querySelectorAll('[data-pick-floor]');
-const viewButtons = document.querySelectorAll('[data-view-action]');
+try {
+  const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+  if (Array.isArray(saved)) favourites = new Set(units.filter(unit => saved.includes(unit.id)).map(unit => unit.id));
+} catch {}
+let selectedUnit = null;
+let selectedPhoto = null;
 
-for (let floor = 1; floor <= 12; floor++) {
-  floorFilter.add(new Option(floor + 'º pavimento', String(floor).padStart(2, '0')));
-}
-
-const building = window.createBuilding($('#buildingCanvas'), {
-  availableFloors: new Set(units.map(unit => unit.floor)),
-  onSelect: selectFloor,
+const canvas = $('#building-canvas');
+const tooltip = $('#floor-tooltip');
+const model = window.createBuilding(canvas, {
+  availableFloors: new Set(['11']),
+  onSelect(floor) {
+    if (floor === '11') {
+      setView('plan', true);
+      return;
+    }
+    model.select(floor);
+    $('#floor-status').textContent = Number(floor) + 'º pavimento · Planta disponível para o 11º pavimento';
+  },
   onHover(floor, x, y) {
-    floorTooltip.hidden = !floor;
+    tooltip.hidden = !floor;
     if (!floor) return;
-    floorTooltip.textContent = Number(floor) + 'º pavimento';
-    const width = $('#buildingCanvas').clientWidth;
-    floorTooltip.style.left = Math.max(0, Math.min(x, width - 112)) + 'px';
-    floorTooltip.style.top = Math.max(90, y) + 'px';
+    tooltip.textContent = floor === '11' ? '11º pavimento · Abrir planta' : Number(floor) + 'º pavimento';
+    tooltip.style.left = Math.min(Math.max(x + 12, 6), canvas.clientWidth - tooltip.offsetWidth - 6) + 'px';
+    tooltip.style.top = Math.max(y - 40, 48) + 'px';
   },
   onViewChange(atMin, atMax) {
-    $('[data-view-action="out"]').disabled = atMin;
-    $('[data-view-action="in"]').disabled = atMax;
+    $('[data-camera="out"]').disabled = atMin;
+    $('[data-camera="in"]').disabled = atMax;
   }
 });
-$('#modelFallback').hidden = Boolean(building);
+$('#model-fallback').hidden = Boolean(model);
+$('#model-controls').hidden = !model;
+$('#angle-button').hidden = !model;
+model?.select('11');
 
-function selectFloor(floor) {
-  floorFilter.value = floor;
-  render();
+function setView(view, fromModel = false) {
+  for (const name of ['model', 'plan', 'aerial']) {
+    $('#' + name + '-stage').hidden = name !== view;
+  }
+  for (const button of $$('.view-switch [data-view]')) {
+    button.setAttribute('aria-pressed', String(button.dataset.view === view));
+  }
+  tooltip.hidden = true;
+  if (view === 'model') {
+    model?.select('11');
+    $('#floor-status').textContent = 'Arraste para girar · Selecione o 11º pavimento';
+  }
+  if (view === 'aerial' && selectedPhoto === null) showPhotograph(0);
+  if (fromModel) $('.view-switch [data-view="plan"]').focus({ preventScroll: true });
 }
 
-function renderFloor(items) {
-  const floor = floorFilter.value;
-  const hasFloor = floor !== 'all';
-  building?.select(hasFloor ? floor : null);
-  floorButtons.forEach(button => {
-    button.setAttribute('aria-pressed', String(button.dataset.pickFloor === floor));
+function unitPlanLink(unit, label) {
+  return '<a class="plan-link" target="_blank" rel="noopener" href="' + planDirectory + unit.plan + '">' + label + ' ↗</a>';
+}
+
+$('#unit-list').innerHTML = units.map(unit => `
+  <button type="button" class="unit-card" data-unit="${unit.id}" aria-pressed="false" aria-controls="unit-detail">
+    <span class="unit-number">${unit.id}</span>
+    <span class="unit-subtitle">${unit.wing}</span>
+    <span class="unit-card-area">${formatArea(unit.area)}</span>
+  </button>`).join('');
+
+function selectUnit(id, fromPlan) {
+  selectedUnit = units.find(unit => unit.id === id);
+  setView('plan');
+  const detail = $('#unit-detail');
+  detail.innerHTML = `
+    <div class="detail-head">
+      <h3 tabindex="-1">Unidade ${selectedUnit.id}</h3>
+      <button type="button" class="save-button" id="save-unit"></button>
+    </div>
+    <dl>
+      <div><dt>Área privativa</dt><dd>${formatArea(selectedUnit.area)}</dd></div>
+      <div><dt>Quartos</dt><dd>1 suíte</dd></div>
+      <div><dt>Preço anunciado em 02/07/2026</dt><dd>${priceFormat.format(selectedUnit.price)}</dd></div>
+    </dl>
+    ${unitPlanLink(selectedUnit, 'Ver planta publicada')}`;
+  detail.hidden = false;
+  for (const button of $$('[data-unit]')) {
+    button.setAttribute('aria-pressed', String(button.dataset.unit === id));
+  }
+  renderFavourite();
+  $('#save-unit').addEventListener('click', toggleFavourite);
+  if (fromPlan) {
+    detail.querySelector('h3').focus({ preventScroll: true });
+    if (mediaSmall.matches) detail.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+function renderFavourite() {
+  const saved = favourites.has(selectedUnit.id);
+  const button = $('#save-unit');
+  button.setAttribute('aria-pressed', String(saved));
+  button.textContent = saved ? '♥ Salva' : '♡ Salvar';
+}
+
+function toggleFavourite() {
+  const id = selectedUnit.id;
+  if (favourites.has(id)) favourites.delete(id);
+  else favourites.add(id);
+  try { localStorage.setItem(storageKey, JSON.stringify([...favourites])); } catch {}
+  renderFavourite();
+}
+
+function showPhotograph(index) {
+  selectedPhoto = index;
+  const photo = photographs[index];
+  const sourceUrl = 'https://commons.wikimedia.org/wiki/File:' + photo.source;
+  const image = $('#aerial-photo');
+  image.hidden = false;
+  image.alt = photo.alt;
+  $('#aerial-fallback').hidden = true;
+  $('#aerial-fallback-link').href = sourceUrl;
+  $('#aerial-title').textContent = photo.title;
+  $('#aerial-source').textContent = photo.author;
+  $('#aerial-source').href = sourceUrl;
+  for (const button of $$('[data-photo]')) {
+    button.setAttribute('aria-pressed', String(Number(button.dataset.photo) === index));
+  }
+  image.src = 'aerial/' + photo.file;
+}
+
+$('#aerial-photo').addEventListener('error', () => {
+  $('#aerial-photo').hidden = true;
+  $('#aerial-fallback').hidden = false;
+});
+$('#aerial-options').innerHTML = photographs.map((photo, index) => `
+  <button type="button" data-photo="${index}" aria-pressed="false">${photo.option}</button>`).join('');
+
+const comparisonRows = [
+  ['Posição', unit => unit.wing],
+  ['Área privativa', unit => formatArea(unit.area)],
+  ['Quartos', () => '1 suíte'],
+  ['Preço anunciado', unit => priceFormat.format(unit.price)],
+  ['Planta', unit => unitPlanLink(unit, 'Ver planta ' + unit.id)]
+];
+$('#compare-summary').textContent = 'A unidade 1108 tem ' + formatArea(units[1].area - units[0].area) + ' a mais de área privativa.';
+$('#compare-content').innerHTML = `
+  <table class="compare-table">
+    <thead><tr><th scope="col">Característica</th>${units.map(unit => '<th scope="col">' + unit.id + '</th>').join('')}</tr></thead>
+    <tbody>${comparisonRows.map(([label, value]) => `
+      <tr><th scope="row">${label}</th>${units.map(unit => '<td>' + value(unit) + '</td>').join('')}</tr>`).join('')}
+    </tbody>
+  </table>`;
+
+for (const button of $$('[data-view]')) {
+  button.addEventListener('click', () => setView(button.dataset.view, button.classList.contains('floor-chip')));
+}
+for (const button of $$('[data-unit]')) {
+  button.addEventListener('click', () => selectUnit(button.dataset.unit, button.classList.contains('plan-unit')));
+}
+for (const button of $$('[data-camera]')) {
+  button.addEventListener('click', () => {
+    const action = button.dataset.camera;
+    model?.changeView(action);
+    if (action !== 'rear' && action !== 'reset') return;
+    const angleButton = $('#angle-button');
+    angleButton.dataset.camera = action === 'rear' ? 'reset' : 'rear';
+    angleButton.firstChild.textContent = action === 'rear' ? 'Ver fachada da orla ' : 'Ver ala posterior ';
   });
-  floorPreview.hidden = !hasFloor || !viewingModel;
-  $('#resultsContext').textContent = hasFloor
-    ? Number(floor) + 'º pavimento selecionado.'
-    : 'Selecione uma unidade para ver os detalhes.';
-  if (!hasFloor) return;
-  const unit = items[0];
-  $('#previewFloor').textContent = Number(floor) + 'º pavimento';
-  $('#previewUnit').textContent = unit
-    ? 'Unidade ' + Number(floor) + '01 · ' + unit.area + ' m² · ' + unit.rooms + ' quartos'
-    : 'Nenhuma unidade nesta seleção';
-  $('#previewDetail').hidden = !unit;
 }
-
-function setView(showModel) {
-  viewingModel = showModel;
-  $('.viewer').classList.toggle('aerial', !showModel);
-  $('#modelStage').hidden = !showModel;
-  $('#aerialStage').hidden = showModel;
-  $('#modelView').setAttribute('aria-pressed', String(showModel));
-  $('#aerialView').setAttribute('aria-pressed', String(!showModel));
-  $('#floorRail').hidden = !showModel;
-  $('#modelControls').hidden = !showModel || !building;
-  $('#modelHint').hidden = !showModel || !building;
-  $('#resultsJump').hidden = !showModel;
-  floorTooltip.hidden = true;
-  render();
+for (const button of $$('[data-photo]')) {
+  button.addEventListener('click', () => showPhotograph(Number(button.dataset.photo)));
 }
-const plan = '<svg viewBox="0 0 130 95" aria-hidden="true"><path d="M12 10h106v75H12z M12 38h53V10M65 38h53M65 38v47M12 62h53M92 38v25h26" fill="none" stroke="#c3d2c7" stroke-width="3"/><path d="M19 15h20v17H19z M72 15h35v17H72z M18 44h25v12H18z" fill="#dce7dc"/></svg>';
-function render(){
- let items=units.filter(u=>($('#floorFilter').value==='all'||u.floor===$('#floorFilter').value)&&($('#roomsFilter').value==='all'||String(u.rooms)===$('#roomsFilter').value)&&(!favouriteOnly||favourites.has(u.floor)));
- const sort=$('#sort').value;items.sort((a,b)=>sort==='asc'?Number(a.floor)-Number(b.floor):sort==='area'?b.area-a.area:Number(b.floor)-Number(a.floor));
- $('#resultCount').textContent=items.length+' '+(items.length===1?'residência ilustrativa':'residências ilustrativas');
- $('#cards').innerHTML=items.map(u=>`<article class="card"><button class="card-main" data-detail="${u.floor}" aria-label="Ver detalhes da unidade ${Number(u.floor)}01"><h3>${Number(u.floor)}01</h3><span class="tag">Unidade ilustrativa</span><div class="card-stats"><div class="stat"><span>Área exemplo</span><strong>${u.area} m²</strong></div><div class="stat"><span>Quartos</span><strong>${u.rooms}</strong></div><div class="stat"><span>Pavimento</span><strong>${Number(u.floor)}º</strong></div></div></button><button class="card-art" data-detail="${u.floor}" aria-label="Ver planta ilustrativa da unidade ${Number(u.floor)}01">${plan}</button><button class="heart ${favourites.has(u.floor)?'saved':''}" data-fav="${u.floor}" aria-label="${favourites.has(u.floor)?'Remover dos':'Adicionar aos'} favoritos" aria-pressed="${favourites.has(u.floor)}">${favourites.has(u.floor)?'♥':'♡'}</button></article>`).join('') || '<p class="empty">Nenhuma residência encontrada. Experimente alterar os filtros.</p>';
- renderFloor(items);
- const n=Number($('#floorFilter').value!=='all')+Number($('#roomsFilter').value!=='all');$('#activeFilters').hidden=!n;$('#activeFilters').textContent=n;$('#favCount').textContent=favourites.size;
-}
-function toggleFav(floor){favourites.has(floor)?favourites.delete(floor):favourites.add(floor);try{localStorage.setItem('orla-favourites',JSON.stringify([...favourites]));}catch(_){}render();if(selected)$('#detailSave').textContent=favourites.has(selected)?'♥  Remover dos favoritos':'♡  Salvar nos favoritos';}
-function showDetail(floor){const u=units.find(x=>x.floor===floor);if(!u)return;selected=floor;$('#detailTitle').textContent='Unidade '+Number(floor)+'01';$('#detailFloor').textContent=Number(floor)+'º pavimento · Exemplo conceitual';$('#detailArea').textContent=u.area+' m²';$('#detailRooms').textContent=u.rooms;$('#detailLevel').textContent=Number(floor)+'º';$('#detailSave').textContent=favourites.has(floor)?'♥  Remover dos favoritos':'♡  Salvar nos favoritos';$('#detail').showModal();}
-function showInfo(kind){const content={help:['BEM-VINDO À ORLA','Explore a experiência.','<p>Arraste a maquete para girar ou use os controles abaixo dela. Use + e − para mudar a escala. Na tela sensível ao toque, aproxime ou afaste dois dedos.</p><p>Clique ou toque em um pavimento para ver as unidades ilustrativas. Pode também usar os botões à direita da maquete ou os filtros da lista.</p>'],localizacao:['O ENDEREÇO','Ponta Verde, Maceió.','<p>Rua Desportista Humberto Guimarães, 101<br>Ponta Verde · Maceió, AL</p><p><a href="https://www.google.com/maps/place/R.+Desportista+Humberto+Guimar%C3%A3es,+101+-+Ponta+Verde,+Macei%C3%B3+-+AL,+57035-030,+Brazil/" target="_blank" rel="noopener noreferrer">Abrir localização no Google Maps ↗</a></p><p>A maquete e a vista aérea são representações conceituais.</p>'],sobre:['ESTUDO VISUAL INDEPENDENTE','Uma ideia para a Orla.','<p>Esta demonstração apresenta uma forma de explorar residências em Ponta Verde. Imagens, unidades, áreas e plantas são ilustrativas; disponibilidade, características e valores reais não foram verificados.</p>']};const c=content[kind];$('#infoKicker').textContent=c[0];$('#infoTitle').textContent=c[1];$('#infoContent').innerHTML=c[2];$('#info').showModal();}
-function menu(open){$('#menu').hidden=!open;$('#menuBackdrop').hidden=!open;$('#menuButton').setAttribute('aria-expanded',String(open));if(open)$('#closeMenu').focus();}
-function filters(open){$('#filterPanel').hidden=!open;$('#filterBackdrop').hidden=!open;if(open)$('#floorFilter').focus();}
-$('#cards').addEventListener('click',e=>{const d=e.target.closest('[data-detail]'),f=e.target.closest('[data-fav]');if(d)showDetail(d.dataset.detail);if(f)toggleFav(f.dataset.fav);});
-floorButtons.forEach(button => {
-  button.addEventListener('click', () => selectFloor(button.dataset.pickFloor));
-});
-viewButtons.forEach(button => {
-  button.addEventListener('click', () => building?.changeView(button.dataset.viewAction));
-});
-$('#clearFloor').addEventListener('click', () => {
-  selectFloor('all');
-  $('#buildingCanvas').focus({ preventScroll: true });
-});
-$('#previewDetail').addEventListener('click', () => showDetail(floorFilter.value));
-$('#modelView').addEventListener('click', () => setView(true));
-$('#aerialView').addEventListener('click', () => setView(false));
-$('#modelControls').hidden = !building;
-$('#modelHint').hidden = !building;
-$('#detailSave').addEventListener('click',()=>toggleFav(selected));
-document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>document.getElementById(b.dataset.close).close()));
-$('#menuButton').onclick=()=>menu(true);$('#closeMenu').onclick=$('#menuBackdrop').onclick=()=>menu(false);$('#filterButton').onclick=()=>filters(true);$('#closeFilter').onclick=$('#filterBackdrop').onclick=$('#applyFilters').onclick=()=>filters(false);
-$('#resetFilters').onclick=()=>{$('#floorFilter').value='all';$('#roomsFilter').value='all';favouriteOnly=false;render();};['floorFilter','roomsFilter','sort'].forEach(id=>$('#'+id).addEventListener('change',render));
-$('#locationButton').onclick=()=>showInfo('localizacao');$('#helpButton').onclick=()=>showInfo('help');
-$('#menu').addEventListener('click',e=>{const page=e.target.closest('[data-page]')?.dataset.page;if(!page)return;menu(false);if(page==='favoritos'){favouriteOnly=true;render();$('#residencias').scrollIntoView({behavior:'smooth'});}else if(page==='residencias'){favouriteOnly=false;render();$('#residencias').scrollIntoView({behavior:'smooth'});}else showInfo(page);});
-render();
+$('#compare-open').addEventListener('click', () => $('#compare-dialog').showModal());

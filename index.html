@@ -1,54 +1,153 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#ffffff"><title>Orla Ponta Verde | Explore as residências</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head><body>
-<header><button class="icon" id="menuButton" aria-label="Abrir menu" aria-expanded="false">☰</button><a href="#" class="brand"><b>ORLA</b><span>PONTA VERDE</span></a><span class="header-caption">Explore uma nova perspectiva</span><div class="header-right"><span>ESTUDO CONCEITUAL</span><button class="icon" id="helpButton" aria-label="Como explorar">?</button></div></header>
-<div class="backdrop" id="menuBackdrop" hidden></div><nav class="menu" id="menu" hidden aria-label="Menu principal"><div class="menu-title">EXPLORAR ORLA <button class="icon" id="closeMenu" aria-label="Fechar menu">×</button></div><button data-page="residencias">⌂ &nbsp; Residências</button><button data-page="localizacao">⌖ &nbsp; Localização</button><button data-page="favoritos">♡ &nbsp; Favoritos <span id="favCount">0</span></button><button data-page="sobre">ⓘ &nbsp; Sobre a experiência</button><div class="menu-foot">PONTA VERDE · MACEIÓ<br><small>Um estudo visual independente</small></div></nav>
-<main>
-<section class="viewer" aria-label="Explore o edifício">
-  <div id="modelStage" class="model-stage">
-    <canvas id="buildingCanvas" tabindex="0" aria-label="Maquete de Orla Ponta Verde" aria-describedby="modelInstructions"></canvas>
-    <p id="modelInstructions" class="visually-hidden">Arraste para girar. Com o teclado, use as setas para girar e mais ou menos para aproximar ou afastar. Use os botões de pavimento para selecionar uma unidade ilustrativa.</p>
-    <div id="modelFallback" class="model-fallback" hidden>Visualização indisponível neste navegador. Explore as residências pelo seletor de pavimentos.</div>
-  </div>
-  <div id="aerialStage" class="aerial-stage" hidden>
-    <img src="coast.jpg" alt="Visualização conceitual de um edifício na orla de Maceió">
-    <span class="aerial-caption">Vista aérea ilustrativa</span>
-  </div>
-  <div class="viewer-top">
-    <div class="view-switch" role="group" aria-label="Vista do edifício">
-      <button type="button" id="modelView" aria-pressed="true">Edifício 3D</button>
-      <button type="button" id="aerialView" aria-pressed="false">Vista aérea</button>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c2220">
+  <meta name="description" content="Explore o 11º pavimento do Five Flex Life em Ponta Verde, Maceió, e compare as unidades 1103 e 1108.">
+  <title>Five Flex Life | Orla Ponta Verde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=five-2">
+  <script src="building.js?v=five-2" defer></script>
+  <script src="app.js?v=five-2" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Orla Ponta Verde, início"><strong>ORLA</strong><span>PONTA VERDE</span></a>
+    <span class="header-location">Maceió, Alagoas</span>
+    <a class="header-link" href="#fontes">Fontes e créditos <span aria-hidden="true">↓</span></a>
+  </header>
+  <main>
+    <section class="intro" aria-labelledby="title">
+      <div>
+        <p class="eyebrow">Ponta Verde · Maceió</p>
+        <h1 id="title">Five Flex Life</h1>
+        <p class="address">Av. Sílvio Carlos Viana, 1811</p>
+      </div>
+      <p class="project-note">Demonstração independente</p>
+    </section>
+
+    <div class="workspace">
+      <section class="viewer" aria-label="Explorar o Five Flex Life">
+        <div class="viewer-bar">
+          <div class="view-switch" role="group" aria-label="Modo de visualização">
+            <button type="button" data-view="model" aria-pressed="true" aria-controls="model-stage">Edifício 3D</button>
+            <button type="button" data-view="plan" aria-pressed="false" aria-controls="plan-stage">Planta</button>
+            <button type="button" data-view="aerial" aria-pressed="false" aria-controls="aerial-stage">Entorno</button>
+          </div>
+          <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=Edif%C3%ADcio%20Five%20Flex%20Life%2C%20Avenida%20Silvio%20Carlos%20Viana%201811%2C%20Macei%C3%B3" target="_blank" rel="noopener">Mapa <span aria-hidden="true">↗</span></a>
+        </div>
+
+        <div id="model-stage" class="model-stage">
+          <canvas id="building-canvas" tabindex="0" aria-label="Maquete do Five Flex Life" aria-describedby="model-instructions"></canvas>
+          <p id="model-instructions" class="sr-only">Arraste para girar. No teclado, use as setas para girar e mais ou menos para aproximar ou afastar. O botão 11º pavimento abre a planta.</p>
+          <p class="model-fallback" id="model-fallback" hidden>Maquete indisponível. Use o botão do 11º pavimento para abrir a planta.</p>
+          <div class="model-meta">
+            <span class="model-label">Maquete esquemática</span>
+            <button type="button" class="angle-button" id="angle-button" data-camera="rear">Ver ala posterior <span aria-hidden="true">↻</span></button>
+          </div>
+          <button type="button" class="floor-chip" data-view="plan"><b>11º</b> <span>Pavimento</span> <span aria-hidden="true">↗</span></button>
+          <output id="floor-tooltip" class="floor-tooltip" aria-hidden="true" hidden></output>
+          <div class="model-bottom">
+            <p id="floor-status" class="floor-status" aria-live="polite">Arraste para girar · Selecione o 11º pavimento</p>
+            <div id="model-controls" class="model-controls" role="group" aria-label="Controles da maquete">
+              <button type="button" data-camera="left" aria-label="Girar à esquerda" title="Girar à esquerda">↶</button>
+              <button type="button" data-camera="right" aria-label="Girar à direita" title="Girar à direita">↷</button>
+              <button type="button" data-camera="out" aria-label="Afastar" title="Afastar">−</button>
+              <button type="button" data-camera="in" aria-label="Aproximar" title="Aproximar">+</button>
+              <button type="button" data-camera="reset" aria-label="Restaurar vista" title="Restaurar vista">⌂</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="plan-stage" class="plan-stage" hidden>
+          <div class="stage-heading">
+            <p class="eyebrow">Planta de navegação</p>
+            <h2>11º pavimento</h2>
+          </div>
+          <div class="plan" aria-label="Posição das unidades no 11º pavimento" role="group">
+            <span class="corridor corridor-vertical" aria-hidden="true"></span>
+            <span class="corridor corridor-horizontal" aria-hidden="true"></span>
+            <span class="footprint wing" aria-hidden="true"></span>
+            <span class="footprint front" aria-hidden="true"></span>
+            <span class="plan-cell" style="--x:17;--y:3;--w:22;--h:13" aria-hidden="true">01</span>
+            <span class="plan-cell" style="--x:17;--y:16;--w:22;--h:13" aria-hidden="true">02</span>
+            <button type="button" class="plan-cell plan-unit" style="--x:17;--y:29;--w:22;--h:15" data-unit="1103" aria-label="Unidade 1103, na ala posterior" aria-pressed="false"><span>1103</span><span aria-hidden="true">↗</span></button>
+            <span class="plan-cell" style="--x:17;--y:45;--w:14;--h:19" aria-hidden="true">04</span>
+            <span class="plan-cell" style="--x:3;--y:45;--w:14;--h:19" aria-hidden="true">05</span>
+            <span class="plan-cell" style="--x:3;--y:73;--w:16;--h:16" aria-hidden="true">06</span>
+            <span class="plan-cell" style="--x:19;--y:73;--w:12;--h:16" aria-hidden="true">07</span>
+            <button type="button" class="plan-cell plan-unit" style="--x:31;--y:73;--w:13;--h:16" data-unit="1108" aria-label="Unidade 1108, na ala da orla" aria-pressed="false"><span>1108</span><span aria-hidden="true">↗</span></button>
+            <span class="plan-cell" style="--x:44;--y:73;--w:13;--h:16" aria-hidden="true">09</span>
+            <span class="plan-cell" style="--x:57;--y:73;--w:7;--h:16" aria-hidden="true">10</span>
+            <span class="plan-cell" style="--x:64;--y:73;--w:7;--h:16" aria-hidden="true">11</span>
+            <span class="plan-cell" style="--x:71;--y:73;--w:7;--h:16" aria-hidden="true">12</span>
+            <span class="plan-cell" style="--x:78;--y:73;--w:7;--h:16" aria-hidden="true">13</span>
+            <span class="plan-cell" style="--x:85;--y:73;--w:7;--h:16" aria-hidden="true">14</span>
+            <span class="plan-cell" style="--x:92;--y:73;--w:5;--h:16" aria-hidden="true">15</span>
+            <span class="plan-cell" style="--x:85;--y:51;--w:12;--h:13" aria-hidden="true">16</span>
+            <span class="plan-cell" style="--x:73;--y:51;--w:12;--h:13" aria-hidden="true">17</span>
+            <span class="plan-cell" style="--x:61;--y:51;--w:12;--h:13" aria-hidden="true">18</span>
+            <span class="plan-cell" style="--x:49;--y:51;--w:12;--h:13" aria-hidden="true">19</span>
+            <span class="plan-coast" aria-hidden="true">Av. Sílvio Carlos Viana · Orla</span>
+          </div>
+          <div class="plan-footer">
+            <span>Posições aproximadas · Sem escala</span>
+            <a href="https://acetdkxqjkygfagvspmf.supabase.co/storage/v1/object/public/images/plantas/1773875574260-z9gcw2hm1up.png" target="_blank" rel="noopener">Planta da incorporadora ↗</a>
+          </div>
+        </div>
+
+        <div id="aerial-stage" class="aerial-stage" hidden>
+          <figure class="aerial-figure">
+            <img id="aerial-photo" alt="">
+            <div class="aerial-fallback" id="aerial-fallback" hidden>Foto indisponível. <a id="aerial-fallback-link" href="#fontes" target="_blank" rel="noopener">Abrir imagem na fonte ↗</a></div>
+            <figcaption id="aerial-caption">
+              <span id="aerial-title"></span>
+              <span><a id="aerial-source" target="_blank" rel="noopener"></a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> · JPEG otimizado</span>
+            </figcaption>
+          </figure>
+          <div class="aerial-toolbar">
+            <div id="aerial-options" class="aerial-options" role="group" aria-label="Fotos do entorno"></div>
+            <a href="https://www.youtube.com/watch?v=v5W3nDjcgIw" target="_blank" rel="noopener">Sobrevoo de 2026 ↗</a>
+          </div>
+          <p class="aerial-note">Registros do bairro e da orla, feitos entre 2016 e 2021.</p>
+        </div>
+      </section>
+
+      <aside class="residences" aria-labelledby="units-title">
+        <p class="eyebrow">11º pavimento</p>
+        <h2 id="units-title">Unidades</h2>
+        <p class="units-intro">Selecione uma unidade para localizar a planta e consultar os detalhes.</p>
+        <div class="unit-list" id="unit-list"></div>
+        <div id="unit-detail" class="unit-detail" hidden></div>
+        <button type="button" id="compare-open" class="compare-button">Comparar 1103 e 1108 <span aria-hidden="true">↗</span></button>
+      </aside>
     </div>
-    <button type="button" class="pill" id="locationButton">⌖ &nbsp; Localização</button>
-  </div>
-  <div class="model-heading">
-    <h1>Ponta Verde</h1>
-    <p>Maquete conceitual</p>
-  </div>
-  <div id="floorRail" class="floor-rail" role="group" aria-label="Pavimentos com unidades ilustrativas">
-    <span>PAV.</span>
-    <button type="button" data-pick-floor="12" aria-label="12º pavimento" aria-pressed="false">12</button>
-    <button type="button" data-pick-floor="08" aria-label="8º pavimento" aria-pressed="false">08</button>
-    <button type="button" data-pick-floor="05" aria-label="5º pavimento" aria-pressed="false">05</button>
-    <button type="button" data-pick-floor="03" aria-label="3º pavimento" aria-pressed="false">03</button>
-  </div>
-  <div id="floorTooltip" class="floor-tooltip" hidden></div>
-  <div id="floorPreview" class="floor-preview" hidden>
-    <div><strong id="previewFloor"></strong><span id="previewUnit"></span></div>
-    <button type="button" class="preview-detail" id="previewDetail">Ver unidade <span aria-hidden="true">↗</span></button>
-    <button type="button" class="preview-close" id="clearFloor" aria-label="Limpar seleção de pavimento">×</button>
-  </div>
-  <div id="modelControls" class="model-controls" role="group" aria-label="Controles da maquete">
-    <button type="button" data-view-action="left" aria-label="Girar à esquerda" title="Girar à esquerda">↶</button>
-    <button type="button" data-view-action="right" aria-label="Girar à direita" title="Girar à direita">↷</button>
-    <span class="control-divider"></span>
-    <button type="button" data-view-action="out" aria-label="Afastar" title="Afastar">−</button>
-    <button type="button" data-view-action="in" aria-label="Aproximar" title="Aproximar">+</button>
-    <span class="control-divider"></span>
-    <button type="button" data-view-action="reset" aria-label="Restaurar vista" title="Restaurar vista">⌂</button>
-  </div>
-  <p id="modelHint" class="model-hint">Arraste para girar · Selecione um pavimento</p>
-  <a id="resultsJump" class="results-jump" href="#residencias" aria-label="Ir para a lista de residências">Residências ↓</a>
-</section>
-<section class="results" id="residencias"><div class="inner"><div class="panel-heading"><div><small>EXPLORE O EDIFÍCIO</small><h2>Residências<span>.</span></h2><p id="resultsContext">Selecione uma unidade para ver os detalhes.</p></div><button class="filter" id="filterButton">☷ &nbsp; Filtros <b id="activeFilters" hidden></b></button></div><div class="result-bar"><span id="resultCount" aria-live="polite"></span><label>Ordenar <select id="sort"><option value="desc">Maior pavimento</option><option value="asc">Menor pavimento</option><option value="area">Maior área</option></select></label></div><div id="cards"></div><p class="disclaimer">As unidades, áreas e plantas são exemplos fictícios para demonstrar a navegação. Não representam informações verificadas do imóvel.</p></div></section></main>
-<div class="backdrop" id="filterBackdrop" hidden></div><aside id="filterPanel" class="filter-panel" hidden><div class="panel-top"><div><small>REFINE SUA BUSCA</small><h2>Filtros</h2></div><button class="icon" id="closeFilter" aria-label="Fechar filtros">×</button></div><label>Pavimento<select id="floorFilter"><option value="all">Todos os pavimentos</option></select></label><label>Quartos<select id="roomsFilter"><option value="all">Todos</option><option value="2">2 quartos</option><option value="3">3 quartos</option></select></label><div class="filter-footer"><button class="text" id="resetFilters">Limpar filtros</button><button class="primary" id="applyFilters">Ver residências →</button></div></aside>
-<dialog id="detail"><div class="detail-head"><div class="brand"><b>ORLA</b><span>PONTA VERDE</span></div><button class="icon" data-close="detail" aria-label="Fechar unidade">×</button></div><div class="detail-grid"><div class="plan-wrap"><small>PLANTA ESQUEMÁTICA · ILUSTRATIVA</small><svg class="plan" viewBox="0 0 600 410" role="img" aria-label="Planta esquemática ilustrativa"><rect x="60" y="38" width="480" height="316" fill="white" stroke="#739085" stroke-width="8"/><path d="M60 143H300V38M300 143h240M300 143v211M60 248h240M420 143v110h120" fill="none" stroke="#95aaa0" stroke-width="5"/><path d="M90 48v75h100V48M325 50v70h145V50M85 170h120v55H85z" fill="#e8eee7"/><text x="175" y="102">QUARTOS</text><text x="420" y="100">VARANDA</text><text x="180" y="205">QUARTO</text><text x="420" y="215">ESTAR</text><text x="180" y="305">COZINHA</text><text x="420" y="305">JANTAR</text></svg><p>Planta apenas para demonstrar a experiência. Não corresponde a uma unidade real.</p></div><div class="detail-copy"><small>RESIDÊNCIA ILUSTRATIVA</small><h2 id="detailTitle"></h2><p id="detailFloor"></p><div class="specs"><div><small>ÁREA EXEMPLO</small><b id="detailArea"></b></div><div><small>QUARTOS</small><b id="detailRooms"></b></div><div><small>PAVIMENTO</small><b id="detailLevel"></b></div></div><h3>Uma vida perto do mar.</h3><p>Imagine um espaço para aproveitar a luz, a brisa e a vida de Ponta Verde. Esta residência é um exemplo criado para explorar a interface.</p><button class="primary" id="detailSave">♡ &nbsp; Salvar nos favoritos</button><button class="text back" data-close="detail">← Voltar às residências</button></div></div></dialog>
-<dialog id="info"><div class="info-box"><button class="icon info-close" data-close="info" aria-label="Fechar">×</button><small id="infoKicker"></small><h2 id="infoTitle"></h2><div id="infoContent"></div><button class="primary" data-close="info">Continuar explorando →</button></div></dialog><script src="building.js"></script><script src="app.js"></script></body></html>
+
+    <footer class="sources" id="fontes">
+      <h2>Fontes e créditos</h2>
+      <p>Planta de navegação e maquete produzidas para esta demonstração. Dados das unidades consultados na tabela de 02/07/2026. Preços e disponibilidade podem ter mudado.</p>
+      <ul>
+        <li><a href="https://coutinhoincorporacoes.com.br/empreendimentos/eef93708-9dc0-45ea-bf3e-68d5dec86f73" target="_blank" rel="noopener">Coutinho Incorporações ↗</a></li>
+        <li><a href="https://www.hiltonimoveis.com.br/empreendimentos/five-ponta-verde" target="_blank" rel="noopener">Hilton Imóveis ↗</a></li>
+        <li><a href="https://maceio.al.gov.br/noticias/semtur/ponta-verde-e-eleita-uma-das-melhores-praias-da-america-do-sul" target="_blank" rel="noopener">Foto aérea da Prefeitura de Maceió ↗</a></li>
+      </ul>
+    </footer>
+  </main>
+
+  <dialog id="compare-dialog" aria-labelledby="compare-title">
+    <div class="dialog-top">
+      <div>
+        <p class="eyebrow">11º pavimento</p>
+        <h2 id="compare-title">Comparar unidades</h2>
+      </div>
+      <form method="dialog"><button class="close-button" aria-label="Fechar comparação" autofocus>×</button></form>
+    </div>
+    <p id="compare-summary" class="compare-summary"></p>
+    <div id="compare-content"></div>
+    <p class="snapshot-note">Valores anunciados em 02/07/2026. Consulte a imobiliária para preço e disponibilidade atuais.</p>
+  </dialog>
+</body>
+</html>
