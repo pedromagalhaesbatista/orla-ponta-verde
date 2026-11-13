@@ -9,10 +9,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=five-13">
-  <script src="building.js?v=five-13" defer></script>
-  <script src="interior.js?v=five-13" defer></script>
-  <script src="app.js?v=five-13" defer></script>
+  <link rel="stylesheet" href="style.css?v=five-14">
+  <script src="building.js?v=five-14" defer></script>
+  <script src="interior.js?v=five-14" defer></script>
+  <script src="app.js?v=five-14" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -43,27 +43,44 @@
           <canvas id="building-canvas" tabindex="0" aria-label="Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde" aria-describedby="model-instructions"></canvas>
           <section class="interior-view" id="interior-view" aria-labelledby="interior-title" hidden>
             <header class="interior-header">
-              <div><h2 id="interior-title">Unidade 1108</h2><p>Planta em 3D · Mobiliário ilustrativo</p></div>
+              <div><h2 id="interior-title">Unidade 1108</h2><p id="interior-caption">Planta em 3D · Mobiliário ilustrativo</p></div>
               <button type="button" id="close-interior">Voltar ao edifício</button>
             </header>
             <canvas id="interior-canvas" role="img" aria-label="Maquete ilustrativa mobiliada da unidade 1108"></canvas>
+            <div id="interior-hotspots" aria-label="Pontos de visita no interior">
+              <button type="button" data-hotspot="entrance" aria-label="Visitar entrada" hidden>Entrada</button>
+              <button type="button" data-hotspot="living" aria-label="Visitar sala" hidden>Sala</button>
+              <button type="button" data-hotspot="suite" aria-label="Visitar suíte" hidden>Suíte</button>
+              <button type="button" data-hotspot="balcony" aria-label="Visitar varanda" hidden>Varanda</button>
+            </div>
             <div class="interior-inset">
               <canvas id="interior-plan" width="208" height="244" role="img" aria-label="Planta da unidade 1108 com o ambiente selecionado destacado"></canvas>
             </div>
             <div class="interior-footer">
+              <div class="interior-modes" role="group" aria-label="Tipo de visita">
+                <button type="button" id="interior-cutaway" aria-pressed="true">Planta 3D</button>
+                <button type="button" id="interior-walk" aria-pressed="false">Visita ao nível dos olhos</button>
+              </div>
               <div class="interior-rooms" role="group" aria-label="Ambientes da unidade 1108">
                 <button type="button" data-room="overview" aria-pressed="true">Visão geral</button>
+                <button type="button" data-room="entrance" aria-pressed="false">Entrada</button>
                 <button type="button" data-room="living" aria-pressed="false">Sala</button>
                 <button type="button" data-room="suite" aria-pressed="false">Suíte</button>
                 <button type="button" data-room="balcony" aria-pressed="false">Varanda</button>
               </div>
-              <button type="button" id="interior-balcony" hidden>Vista simulada da varanda ↗</button>
+              <button type="button" id="interior-balcony" hidden>Vista da orla ↗</button>
+              <div class="interior-tools">
+                <button type="button" id="interior-furniture" aria-pressed="true">Com móveis</button>
+                <button type="button" id="interior-route" aria-pressed="false">Trajeto</button>
+                <button type="button" id="copy-interior">Copiar link da vista</button>
+              </div>
+              <output class="share-status" id="interior-share-status" aria-live="polite"></output>
             </div>
           </section>
           <section class="frontage-view" id="frontage-view" aria-labelledby="frontage-title" hidden>
             <div class="frontage-bar">
               <div><strong id="frontage-title">Five Flex Life em construção</strong><span>Street View · Abril de 2026</span></div>
-              <button type="button" id="close-frontage">Voltar à maquete</button>
+              <div class="frontage-actions"><button type="button" id="locate-frontage">Posição da câmera</button><button type="button" id="close-frontage">Voltar à maquete</button></div>
             </div>
             <iframe id="frontage-frame" title="Panorama ao nível da rua do Five Flex Life em construção" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
             <a id="frontage-link" target="_blank" rel="noopener">Abrir no Google Maps ↗</a>
@@ -83,6 +100,7 @@
             <button type="button" class="scene-landmark visit-marker" data-landmark="crossing" aria-controls="visit-card" aria-pressed="false" hidden>Travessia</button>
             <button type="button" class="scene-landmark visit-marker" data-landmark="promenade" aria-controls="visit-card" aria-pressed="false" hidden>Calçadão</button>
             <button type="button" class="scene-landmark visit-marker" data-landmark="beach" aria-controls="visit-card" aria-pressed="false" hidden>Acesso à praia</button>
+            <button type="button" class="scene-landmark visit-marker" data-landmark="frontage" aria-controls="visit-card" aria-pressed="false" hidden>Câmera</button>
           </div>
           <section class="visit-card" id="visit-card" aria-labelledby="visit-title" hidden>
             <div class="visit-card-header">
@@ -93,6 +111,8 @@
             <div class="visit-actions">
               <a id="visit-map" target="_blank" rel="noopener">Abrir no mapa ↗</a>
               <a id="visit-street" data-street-view target="_blank" rel="noopener" hidden>Street View ↗</a>
+              <button type="button" class="text-button" id="visit-frontage" data-open-frontage aria-controls="frontage-view" hidden>Abrir panorama</button>
+              <button type="button" class="text-button" id="visit-frontage-model" hidden>Ver mesmo ângulo na maquete</button>
               <button type="button" class="text-button" id="visit-photo" data-open-photo="praia" aria-haspopup="dialog" hidden>Ver foto da praia</button>
             </div>
           </section>
@@ -124,6 +144,7 @@
               <button type="button" data-balcony-view="sea" aria-pressed="true">Para o mar</button>
               <button type="button" data-balcony-view="west" aria-pressed="false">Sudoeste</button>
             </div>
+            <div class="balcony-share"><button type="button" id="copy-balcony">Copiar link da varanda</button><output class="share-status" id="balcony-share-status" aria-live="polite"></output></div>
           </div>
           <div class="model-meta">
             <span class="model-label" id="scene-label">Maquete sobre imagem de satélite</span>
@@ -138,6 +159,7 @@
               <button type="button" data-neighbourhood-preset="site-plan" aria-pressed="false">Vista de cima</button>
             </div>
             <button type="button" class="angle-button" id="site-entrance" data-open-frontage aria-controls="frontage-view" hidden>Ver fachada no Street View</button>
+            <button type="button" class="angle-button" id="exit-street-camera" hidden>Voltar à vista oblíqua</button>
             <div class="scene-unit" id="scene-unit" hidden>
               <strong id="scene-unit-name"></strong>
               <button type="button" data-unit-action="plan" aria-controls="plan-stage">Planta</button>
@@ -155,6 +177,7 @@
             <button type="button" data-landmark="entrance" aria-controls="visit-card" aria-pressed="false">Entrada</button>
             <button type="button" data-landmark="promenade" aria-controls="visit-card" aria-pressed="false">Calçadão</button>
             <button type="button" data-landmark="beach" aria-controls="visit-card" aria-pressed="false">Acesso à praia</button>
+            <button type="button" data-landmark="frontage" aria-controls="visit-card" aria-pressed="false">Câmera da fachada</button>
           </div>
           <button type="button" id="walk-toggle" aria-controls="walk-card" aria-pressed="false">Entrada → Praia</button>
           <button type="button" id="satellite-toggle" aria-pressed="false" aria-label="Ver imagem de satélite sem a maquete">Só satélite</button>

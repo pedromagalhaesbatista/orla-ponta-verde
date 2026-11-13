@@ -291,6 +291,7 @@
     let preset = 'orla';
     let outlineVisible = false;
     let walkVisible = false;
+    let frontageCameraVisible = false;
     let satelliteOnly = false;
     let width = 0;
     let height = 0;
@@ -323,18 +324,21 @@
       ctx.clearRect(0, 0, width, height);
       const yaw = simulation?.yaw ?? camera.yaw;
       const pitch = simulation?.pitch ?? camera.pitch;
+      const streetCamera = !simulation && preset === 'street-camera';
+      const firstPerson = Boolean(simulation || streetCamera);
+      const eye = streetCamera ? [visitPoints.frontage[0], .46, visitPoints.frontage[2]] : balconyEye;
       const sinYaw = Math.sin(yaw), cosYaw = Math.cos(yaw);
       const sinPitch = Math.sin(pitch), cosPitch = Math.cos(pitch);
-      const scale = simulation ? Math.min(width, height * 1.8) * .72 / fieldOfView
+      const scale = firstPerson ? Math.min(width, height * 1.8) * (streetCamera ? .48 : .72) / fieldOfView
         : Math.max(5, Math.min((width - 32) / 12.3, (height - 95) / 16.5));
       const distance = fieldOfView / camera.zoom;
       const target = camera.target;
-      const centreX = width * (.50 + (simulation ? 0 : camera.frameOffsetX));
-      const centreY = simulation ? height * .47 : height * (.37 - .10 * camera.zoom + camera.frameOffset);
+      const centreX = width * (.50 + (firstPerson ? 0 : camera.frameOffsetX));
+      const centreY = firstPerson ? height * .47 : height * (.37 - .10 * camera.zoom + camera.frameOffset);
 
       function homogeneous(x, y, z) {
-        if (simulation) {
-          const [eyeX, eyeY, eyeZ] = balconyEye;
+        if (firstPerson) {
+          const [eyeX, eyeY, eyeZ] = eye;
           const dx = x - eyeX, dz = z - eyeZ;
           const ahead = dx * sinYaw + dz * cosYaw;
           const vertical = y * .69 - eyeY;
@@ -385,7 +389,7 @@
 
       const faces = satelliteOnly && !simulation ? [] : cameraFaces();
       const unitPoints = {};
-      if (!simulation) {
+      if (!firstPerson) {
         for (const { surface, points } of faces) {
           if (!surface?.unit) continue;
           const x = points.reduce((sum, point) => sum + point.x, 0) / points.length;
@@ -407,18 +411,28 @@
         beach: project([25, -.24, 24]),
         avenue: project([-17, -.24, 13]),
         visit: Object.fromEntries(Object.entries(visitPoints).map(([id, point]) => [id, project(point)])),
-        heading: (simulation ? Math.PI - yaw : -yaw) * 180 / Math.PI,
+        heading: (firstPerson ? Math.PI - yaw : -yaw) * 180 / Math.PI,
         preset,
         simulationYaw: simulation?.yaw,
+        simulationPitch: simulation?.pitch,
         balconyPreset,
         width,
         height
       });
 
-      projectedFaces = simulation ? [] : faces;
+      projectedFaces = firstPerson ? [] : faces;
+      if (streetCamera) {
+        const pavement = ctx.createLinearGradient(0, height * .85, 0, height);
+        pavement.addColorStop(0, '#8c8e7c00');
+        pavement.addColorStop(.22, '#9e9b88');
+        pavement.addColorStop(1, '#72766c');
+        ctx.fillStyle = pavement;
+        ctx.fillRect(0, height * .85, width, height * .15);
+      }
       if (satelliteOnly && !simulation) {
         drawFootprint();
         drawWalk();
+        drawFrontageCamera();
         return;
       }
 
@@ -426,11 +440,13 @@
         const visible = [];
         for (const surface of simulation ? neighbours : [...neighbours, ...tower]) {
           const [nx, ny, nz] = surface.normal;
-          if (simulation) {
+          if (firstPerson) {
             const [x, y, z] = surface.points[0];
-            if (nx * (balconyEye[0] - x) + ny * (balconyEye[1] - y * .69) + nz * (balconyEye[2] - z) <= 0) continue;
+            if (nx * (eye[0] - x) + ny * (eye[1] - y * .69) + nz * (eye[2] - z) <= 0) continue;
           } else if (nx * sinYaw * cosPitch + ny * sinPitch + nz * cosYaw * cosPitch <= 0) continue;
-          const points = surface.points.map(project);
+          const clipped = streetCamera ? clipNear(surface.points) : null;
+          if (clipped && clipped.length < 3) continue;
+          const points = clipped ? clipped.map(point => ({ x: point.x / point.w, y: point.y / point.w, depth: point.depth, w: point.w })) : surface.points.map(project);
           if (points.some(point => point.w <= 0)) continue;
           const depth = points.reduce((sum, point) => sum + point.depth, 0) / points.length;
           visible.push({ surface, points, depth });
@@ -563,7 +579,9 @@
           return project(origin.map((value, axis) => value + (right[axis] - value) * u + (top[axis] - value) * v));
         }
         for (const { u1, v1, u2, v2, color } of surface.details) {
-          trace(ctx, [onFace(u1,v1), onFace(u2,v1), onFace(u2,v2), onFace(u1,v2)]);
+          const panel = [onFace(u1,v1), onFace(u2,v1), onFace(u2,v2), onFace(u1,v2)];
+          if (streetCamera && panel.some(point => point.w <= .004)) continue;
+          trace(ctx, panel);
           ctx.fillStyle = color;
           ctx.fill();
         }
@@ -606,7 +624,8 @@
           const previous = source[(i + source.length - 1) % source.length];
           if ((previous.w >= near) !== (point.w >= near)) {
             const t = (near - previous.w) / (point.w - previous.w);
-            result.push({ x: previous.x + t * (point.x - previous.x), y: previous.y + t * (point.y - previous.y), w: near });
+            result.push({ x: previous.x + t * (point.x - previous.x), y: previous.y + t * (point.y - previous.y),
+              depth: previous.depth + t * (point.depth - previous.depth), w: near });
           }
           if (point.w >= near) result.push(point);
         }
@@ -641,6 +660,35 @@
       }
       drawFootprint();
       drawWalk();
+      drawFrontageCamera();
+      function drawFrontageCamera() {
+        if (!frontageCameraVisible || simulation) return;
+        const [x, , z] = visitPoints.frontage;
+        const azimuth = 331 * Math.PI / 180;
+        const start = project([x, -.10, z]);
+        const direction = project([x + 6 * Math.sin(azimuth), -.10, z - 6 * Math.cos(azimuth)]);
+        if (start.w <= .02 || direction.w <= .02) return;
+        const angle = Math.atan2(direction.y - start.y, direction.x - start.x);
+        ctx.save();
+        ctx.translate(start.x, start.y);
+        ctx.rotate(angle);
+        const length = Math.max(16, Math.hypot(direction.x - start.x, direction.y - start.y));
+        ctx.beginPath();
+        ctx.moveTo(0, -3);
+        ctx.lineTo(length - 9, -3);
+        ctx.lineTo(length - 9, -8);
+        ctx.lineTo(length, 0);
+        ctx.lineTo(length - 9, 8);
+        ctx.lineTo(length - 9, 3);
+        ctx.lineTo(0, 3);
+        ctx.closePath();
+        ctx.fillStyle = '#80eedc';
+        ctx.strokeStyle = '#164b42';
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
       function drawWalk() {
         if (!walkVisible || simulation) return;
         const projected = walkPoints.map(([x, z]) => project([x, -.14, z]));
@@ -748,7 +796,16 @@
         redraw();
         return;
       }
+      if (preset === 'street-camera') Object.assign(camera, cameraView(facadeView));
       flight = null;
+      if (action === 'street-camera') {
+        preset = action;
+        Object.assign(camera, cameraView({ ...facadeView, yaw: -151 * Math.PI / 180, pitch: -29 * Math.PI / 180 }));
+        reportZoom();
+        setHover(null);
+        redraw();
+        return;
+      }
       preset = ['orla', 'facade', 'entrance', 'rear', 'aerial', 'site-plan'].includes(action) ? action : null;
       switch (action) {
         case 'left': camera.yaw -= Math.PI / 8; break;
@@ -810,6 +867,7 @@
         return;
       }
       pointers.set(event.pointerId, current);
+      if (preset === 'street-camera') return;
       if (!simulation) preset = null;
       if (simulation) {
         if (!dragged && distance(current, start) < 5) return;
@@ -879,6 +937,10 @@
         walkVisible = visible;
         redraw();
       },
+      showFrontageCamera(visible) {
+        frontageCameraVisible = visible;
+        redraw();
+      },
       showSatelliteOnly(enabled) {
         satelliteOnly = enabled;
         setHover(null);
@@ -887,6 +949,7 @@
       showUnit(id, { rotate = true } = {}) {
         selectedUnit = id;
         if (id && rotate) {
+          if (preset === 'street-camera') Object.assign(camera, cameraView(facadeView));
           preset = unitPresets[id];
           moveTo(preset === 'rear' ? rearView : unitView);
         } else redraw();
@@ -900,6 +963,15 @@
         balconyPreset = 'sea';
         simulation = enabled ? { ...balconyViews.sea } : null;
         setHover(null);
+        redraw();
+      },
+      setBalconyCamera(yaw, pitch) {
+        if (!simulation) return;
+        simulation = { yaw: clamp(yaw, -1.12, 1.12), pitch: clamp(pitch, -.08, .58) };
+        balconyPreset = Object.keys(balconyViews).find(name => {
+          const view = balconyViews[name];
+          return view.yaw === simulation.yaw && view.pitch === simulation.pitch;
+        }) || null;
         redraw();
       },
       setNeighbours(footprints) {

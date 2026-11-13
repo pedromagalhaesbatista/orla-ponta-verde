@@ -36,6 +36,10 @@ const landmarks = {
   beach: {
     title: 'Praia de Ponta Verde', point: [17.526, -.22, 18.367], location: '-9.6638247,-35.7039480',
     text: 'Fim do percurso no calçadão, na altura do Lopana. O marcador indica a referência de acesso à areia.', photo: 'praia'
+  },
+  frontage: {
+    title: 'Câmera da fachada', point: [1.79, -.22, 6.70], location: '-9.6633286,-35.7046266',
+    text: 'Street View · abril de 2026. A seta aponta para noroeste (331°), em direção ao Five em construção.'
   }
 };
 // Calçada norte da avenida, travessia OSM 260818623 e calçadão OSM 407501856.
@@ -149,6 +153,12 @@ const exploreUnits = $('#explore-units');
 const interiorView = $('#interior-view');
 const interiorBalcony = $('#interior-balcony');
 const roomButtons = $$('[data-room]');
+const roomHotspots = $$('[data-hotspot]');
+const roomNames = { overview: 'Visão geral', entrance: 'Entrada', living: 'Sala', suite: 'Suíte', balcony: 'Varanda' };
+let interiorRoom = 'overview';
+let interiorWalk = false;
+let interiorFurniture = true;
+let interiorRoute = false;
 let interior;
 let interiorTimer = null;
 let roomBeforeSimulation = null;
@@ -168,6 +178,7 @@ const cameraHeading = $('#camera-heading');
 const scenePresets = $$('[data-preset]');
 const neighbourhoodPresets = $$('[data-neighbourhood-preset]');
 const streetAccess = $('#site-entrance');
+const exitStreetCamera = $('#exit-street-camera');
 const visitStreet = $('#visit-street');
 const frontageView = $('#frontage-view');
 const frontageFrame = $('#frontage-frame');
@@ -201,6 +212,7 @@ let activePanel = 'plan';
 let panelOpen = false;
 let simulating = false;
 let lastSimulationYaw;
+let lastSimulationPitch;
 const beachLabel = $('#beach-label');
 const avenueLabel = $('#avenue-label');
 const groundImage = $('#satellite-ground');
@@ -219,7 +231,7 @@ const model = window.createBuilding(canvas, {
     originX: -5,
     originZ: 24
   },
-  onPosition({ footprint, rooftop, floor, units: points, beach, avenue, visit, width, height, heading, preset, simulationYaw, balconyPreset }) {
+  onPosition({ footprint, rooftop, floor, units: points, beach, avenue, visit, width, height, heading, preset, simulationYaw, simulationPitch, balconyPreset }) {
     const aerial = activeView === 'aerial';
     pin.hidden = !aerial || simulating;
     if (!pin.hidden) {
@@ -246,16 +258,18 @@ const model = window.createBuilding(canvas, {
     compass.setAttribute('aria-label', 'Rumo da câmera: ' + name + ', ' + bearing + ' graus');
     for (const button of scenePresets) button.setAttribute('aria-pressed', String(button.dataset.preset === preset && !aerial && !simulating));
     for (const button of neighbourhoodPresets) button.setAttribute('aria-pressed', String(button.dataset.neighbourhoodPreset === preset && aerial));
-    streetAccess.hidden = aerial || simulating || !['entrance', 'facade'].includes(preset);
+    streetAccess.hidden = aerial || simulating || !['entrance', 'facade', 'street-camera'].includes(preset);
+    exitStreetCamera.hidden = preset !== 'street-camera' || aerial || simulating;
     if (simulating && simulationYaw !== lastSimulationYaw) {
       drawPlan(simOrientation, '1108', { simulationYaw });
       lastSimulationYaw = simulationYaw;
     }
+    if (simulating) lastSimulationPitch = simulationPitch;
     if (simulating) for (const button of balconyButtons) {
       button.setAttribute('aria-pressed', String(button.dataset.balconyView === balconyPreset));
     }
     const anchorFloor = !aerial && !simulating && preset !== 'rear' && floor.x + 13 < width - 68 && floor.y > 92;
-    floorChip.hidden = aerial;
+    floorChip.hidden = aerial || preset === 'street-camera';
     floorChip.classList.toggle('floor-chip-anchored', anchorFloor);
     if (anchorFloor) place(floorChip, floor, 40, width - 67, 59, height - 41, 13);
     else {
@@ -276,10 +290,11 @@ const model = window.createBuilding(canvas, {
     rotateToUnit.hidden = aerial || !selectedUnit || Boolean(points[selectedUnit.id]) || simulating;
 
     // Leave the projected pins in geographic order and stagger nearby labels.
-    const markerOffsets = { entrance: [-65, 21], crossing: [0, 26], promenade: [-26, 27], beach: [49, 42] };
+    const markerOffsets = { entrance: [-65, 21], crossing: [0, 26], promenade: [-26, 27], beach: [49, 42], frontage: [65, -24] };
     for (const button of visitMarkers.children) {
       const point = visit[button.dataset.landmark];
       button.hidden = !aerial || simulating || (button.dataset.landmark === 'crossing' && !walking)
+        || (button.dataset.landmark === 'frontage' && selectedLandmark !== 'frontage')
         || point.w <= 0 || point.x < 0 || point.x > width || point.y < 0 || point.y > height;
       if (!button.hidden) {
         place(button, point, 53, width - 53, 64, height - 18, ...markerOffsets[button.dataset.landmark]);
@@ -384,7 +399,7 @@ function setView(view, { cameraAction, updateUrl = true } = {}) {
 }
 
 function showFrontage(button) {
-  setView('model', { cameraAction: 'facade' });
+  setView('model', { cameraAction: 'street-camera' });
   frontageOpener = button;
   if (!frontageFrame.hasAttribute('src')) frontageFrame.src = frontageEmbed;
   frontageView.hidden = false;
@@ -405,6 +420,16 @@ function hideFrontage({ restoreFocus = false } = {}) {
 
 for (const button of $$('[data-open-frontage]')) button.addEventListener('click', () => showFrontage(button));
 closeFrontage.addEventListener('click', () => hideFrontage({ restoreFocus: true }));
+$('#locate-frontage').addEventListener('click', () => {
+  setView('aerial', { cameraAction: 'site-plan' });
+  openLandmark('frontage', visitBar.querySelector('[data-landmark="frontage"]'));
+});
+$('#visit-frontage-model').addEventListener('click', () => {
+  setView('model', { cameraAction: 'street-camera' });
+  canvas.focus({ preventScroll: true });
+  $('.site-header').scrollIntoView({ block: 'start' });
+});
+exitStreetCamera.addEventListener('click', () => setView('model', { cameraAction: 'facade' }));
 
 function renderPanel() {
   workspace.classList.toggle('plan-open', panelOpen);
@@ -451,7 +476,7 @@ function openPanel(name, { focus = false, updateUrl = true } = {}) {
 function updateSummary() {
   const unit = selectedUnit;
   $('#sheet-selection').textContent = unit ? 'Unidade ' + unit.id + ' · ' + formatArea(unit.area) : '11º pavimento';
-  $('#floor-status').textContent = !interiorView.hidden ? 'Escolha um ambiente para aproximar'
+  $('#floor-status').textContent = !interiorView.hidden ? 'Selecione um ambiente para mudar de perspectiva'
     : simulating ? 'Arraste para olhar ao redor'
     : walking ? `Percurso a pé · cerca de ${walkMetres} m`
     : activeView === 'aerial' ? (unit ? `Unidade ${unit.id} selecionada` : 'Selecione um ponto para ver a localização')
@@ -516,6 +541,9 @@ function openLandmark(id, control) {
   $('#visit-description').textContent = text;
   $('#visit-map').href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(location);
   visitStreet.hidden = !streetView;
+  $('#visit-frontage').hidden = id !== 'frontage';
+  $('#visit-frontage-model').hidden = id !== 'frontage';
+  model?.showFrontageCamera(id === 'frontage');
   if (streetView) visitStreet.href = streetView;
   const visitPhoto = $('#visit-photo');
   visitPhoto.hidden = !photo;
@@ -531,6 +559,7 @@ function openLandmark(id, control) {
 function closeLandmark(restoreFocus = false) {
   if (!selectedLandmark) return;
   selectedLandmark = null;
+  model?.showFrontageCamera(false);
   visitCard.hidden = true;
   for (const button of $$('[data-landmark]')) button.setAttribute('aria-pressed', 'false');
   if (restoreFocus) (lastLandmarkControl.hidden ? visitBar.querySelector('[data-landmark="' + lastLandmarkControl.dataset.landmark + '"]') : lastLandmarkControl)?.focus({ preventScroll: true });
@@ -591,7 +620,7 @@ document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open]')) return;
   if (selectedLandmark) closeLandmark(true);
   else if (!frontageView.hidden) hideFrontage({ restoreFocus: true });
-  else if (!interiorView.hidden || interiorTimer !== null) leaveInterior(true);
+  else if (!interiorView.hidden || interiorTimer !== null) closeInteriorTour();
   else if (simulating) exitSimulation();
   else if (panelOpen) closePlan();
 });
@@ -787,6 +816,8 @@ function setSimulation(enabled, focus = false) {
   workspace.classList.toggle('simulating', enabled);
   simView.hidden = !enabled;
   lastSimulationYaw = undefined;
+  lastSimulationPitch = undefined;
+  $('#balcony-share-status').replaceChildren();
   canvas.setAttribute('aria-label', enabled ? 'Vista simulada da unidade 1108 voltada para a orla' : 'Maquete do Five Flex Life sobre imagem de satélite de Ponta Verde');
   if (enabled) {
     $('#exit-sim').textContent = roomBeforeSimulation ? 'Voltar ao interior' : 'Voltar ao edifício';
@@ -810,15 +841,42 @@ function exitSimulation() {
     showInterior(room);
     interiorBalcony.focus({ preventScroll: true });
   }
+  syncUrl();
 }
 
 function selectInteriorRoom(room) {
-  interior.show(room);
+  interiorRoom = room;
+  interior.show(room, { walkthrough: interiorWalk, furniture: interiorFurniture, showRoute: interiorRoute });
   for (const button of roomButtons) button.setAttribute('aria-pressed', String(button.dataset.room === room));
+  roomButtons[0].hidden = interiorWalk;
+  $('#interior-cutaway').setAttribute('aria-pressed', String(!interiorWalk));
+  $('#interior-walk').setAttribute('aria-pressed', String(interiorWalk));
+  $('#interior-furniture').setAttribute('aria-pressed', String(interiorFurniture));
+  $('#interior-furniture').textContent = interiorFurniture ? 'Com móveis' : 'Sem móveis';
+  $('#interior-route').setAttribute('aria-pressed', String(interiorRoute));
+  $('#interior-share-status').replaceChildren();
+  $('#interior-caption').textContent = interiorWalk ? `${roomNames[room]} · Visita simulada` : '57,50 m² privativos · Mobiliário ilustrativo';
+  $('#interior-canvas').setAttribute('aria-label', interiorWalk ? `Vista simulada ao nível dos olhos · ${roomNames[room]}` : 'Maquete ilustrativa da unidade 1108');
   const roomIndexes = { living: 0, suite: 1, balcony: 5 };
-  drawPlan($('#interior-plan'), '1108', { roomIndex: roomIndexes[room] });
+  drawPlan($('#interior-plan'), '1108', { roomIndex: roomIndexes[room], eye: window.interiorStops[room] });
+  $('#interior-plan').setAttribute('aria-label', room === 'overview' ? 'Planta da unidade 1108, com a orla para baixo'
+    : `Planta da unidade 1108. Posição e direção da câmera · ${roomNames[room]}`);
   interiorBalcony.disabled = room !== 'balcony';
   interiorBalcony.hidden = !model;
+}
+
+function loadInterior() {
+  interior ??= window.createInterior?.($('#interior-canvas'), planDrawings['1108'], points => {
+    for (const button of roomHotspots) {
+      const point = points[button.dataset.hotspot];
+      button.hidden = !point || point.x < 32 || point.x > interiorView.clientWidth - 32 || point.y < 74 || point.y > interiorView.clientHeight - 108;
+      if (!button.hidden) {
+        button.style.left = point.x + 'px';
+        button.style.top = point.y + 'px';
+      }
+    }
+  });
+  return interior;
 }
 
 function showInterior(room = 'overview') {
@@ -828,6 +886,11 @@ function showInterior(room = 'overview') {
   selectInteriorRoom(room);
   updateSummary();
   $('.site-header').scrollIntoView({ block: 'start' });
+}
+
+function closeInteriorTour() {
+  leaveInterior(true);
+  syncUrl();
 }
 
 function leaveInterior(restoreFocus = false) {
@@ -850,16 +913,19 @@ function leaveInterior(restoreFocus = false) {
 document.addEventListener('click', event => {
   const opener = event.target.closest('[data-open-interior]');
   if (!opener) return;
-  interior ??= window.createInterior?.($('#interior-canvas'), planDrawings['1108']);
-  if (!interior) {
+  if (!loadInterior()) {
     selectUnit('1108', { panel: 'plan', focus: true });
     return;
   }
   selectUnit('1108');
+  interiorWalk = false;
+  interiorFurniture = true;
+  interiorRoute = false;
   setSheetExpanded(false);
   $('.site-header').scrollIntoView({ block: 'start' });
   if (!model || matchMedia('(prefers-reduced-motion: reduce)').matches) {
     showInterior();
+    syncUrl();
     $('#close-interior').focus({ preventScroll: true });
     return;
   }
@@ -869,17 +935,45 @@ document.addEventListener('click', event => {
     interiorTimer = null;
     model.emphasizeFloor(false);
     showInterior();
+    syncUrl();
     $('#close-interior').focus({ preventScroll: true });
   }, 640);
 });
-$('#close-interior').addEventListener('click', () => leaveInterior(true));
+$('#close-interior').addEventListener('click', closeInteriorTour);
 for (const button of roomButtons) button.addEventListener('click', () => {
   selectInteriorRoom(button.dataset.room);
-  if (mediaSmall.matches) $('.site-header').scrollIntoView({ block: 'start' });
+  syncUrl();
+  $('.site-header').scrollIntoView({ block: 'start' });
 });
+for (const button of roomHotspots) button.addEventListener('click', () => {
+  interiorWalk = true;
+  selectInteriorRoom(button.dataset.hotspot);
+  roomButtons.find(control => control.dataset.room === button.dataset.hotspot)?.focus({ preventScroll: true });
+  syncUrl();
+});
+for (const [id, walk] of [['#interior-cutaway', false], ['#interior-walk', true]]) {
+  $(id).addEventListener('click', () => {
+    interiorWalk = walk;
+    selectInteriorRoom(walk && interiorRoom === 'overview' ? 'entrance' : interiorRoom);
+    syncUrl();
+  });
+}
+$('#interior-furniture').addEventListener('click', () => {
+  interiorFurniture = !interiorFurniture;
+  selectInteriorRoom(interiorRoom);
+  syncUrl();
+});
+$('#interior-route').addEventListener('click', () => {
+  interiorRoute = !interiorRoute;
+  selectInteriorRoom(interiorRoom);
+  syncUrl();
+});
+$('#copy-interior').addEventListener('click', () => copyLink(stateLink({ unit: '1108', interior: currentInterior() }), $('#interior-share-status')));
+$('#copy-balcony').addEventListener('click', () => copyLink(stateLink({ unit: '1108', interior: balconyLinkState() }), $('#balcony-share-status')));
 interiorBalcony.addEventListener('click', () => {
   roomBeforeSimulation = 'balcony';
   setSimulation(true, true);
+  syncUrl();
 });
 
 function renderFavourite() {
@@ -1036,7 +1130,7 @@ function planCanvas(unit) {
     aria-label="Planta esquemática da unidade ${unit.id}. ${unit.orientation}. ${unit.layout} Entrada e direção da orla indicadas."></canvas>`;
 }
 
-function drawPlan(diagram, id, { simulationYaw, roomIndex } = {}) {
+function drawPlan(diagram, id, { simulationYaw, roomIndex, eye } = {}) {
   const ctx = diagram.getContext('2d');
   if (!ctx) return;
   const plan = planDrawings[id];
@@ -1119,6 +1213,14 @@ function drawPlan(diagram, id, { simulationYaw, roomIndex } = {}) {
     ctx.fill();
     arrow(x + Math.cos(angle) * 25, y + Math.sin(angle) * 25, angle, 24, '#214f43', 6);
   }
+  if (eye) {
+    const angle = Math.PI / 2 - eye.yaw;
+    ctx.fillStyle = '#136450';
+    ctx.beginPath();
+    ctx.arc(eye.x, eye.z, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    arrow(eye.x + Math.cos(angle) * 22, eye.z + Math.sin(angle) * 22, angle, 20, '#136450');
+  }
 
   function arrow(x, y, angle, length, colour, head = 4) {
     ctx.save();
@@ -1137,7 +1239,18 @@ function drawPlan(diagram, id, { simulationYaw, roomIndex } = {}) {
 const zoomLevels = [100, 125, 150, 200];
 const planZooms = { unit: 0, large: 0, compare: 0 };
 
-function drawComparisonOverlay(canvas, mode) {
+const comparisonFocus = {
+  outline: { label: 'Contorno', description: '' },
+  living: { label: 'Sala', description: 'Na 1103, a sala acompanha o recorte diagonal. Na 1108, a sala tem passagem direta para a varanda.',
+    '1103': [[44,48],[163,48],[163,158],[134,158],[44,85]], '1108': [[18,72],[92,72],[92,111],[113,111],[113,187],[18,187]] },
+  suite: { label: 'Suíte', description: 'A suíte da 1103 tem uma parede diagonal. Na 1108, ela fica ao lado da sala, com janela voltada para a orla.',
+    '1103': [[44,143],[72,112],[133,166],[133,235],[44,235]], '1108': [[150,38],[190,38],[190,226],[113,226],[113,96],[150,96]] },
+  entrance: { label: 'Entrada', description: 'A entrada da 1103 fica na lateral. A da 1108 fica no lado oposto à orla, junto à cozinha.' }
+};
+const comparisonView = { layout: 'side', outline: 'both', focus: 'outline' };
+const comparisonRenderers = [];
+
+function drawComparisonOverlay(canvas, mode, focus) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   const scale = canvas.width / 208;
@@ -1174,6 +1287,16 @@ function drawComparisonOverlay(canvas, mode) {
     ctx.lineWidth = 2.1;
     ctx.stroke();
     ctx.setLineDash([]);
+    const focusedRoom = comparisonFocus[focus][id];
+    if (focusedRoom) {
+      trace(focusedRoom, true);
+      ctx.fillStyle = id === '1103' ? '#d4773e5c' : '#27a58d60';
+      ctx.fill();
+      ctx.setLineDash(dash);
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
     if (mode !== 'both') {
       ctx.lineWidth = .65;
       for (const room of rooms) {
@@ -1188,13 +1311,19 @@ function drawComparisonOverlay(canvas, mode) {
     const { x, y, angle } = entrance;
     ctx.translate(x + dx, y + dy);
     ctx.rotate(angle);
+    if (focus === 'entrance') {
+      ctx.beginPath();
+      ctx.arc(7, 0, 12, 0, Math.PI * 2);
+      ctx.fillStyle = wash;
+      ctx.fill();
+    }
     ctx.beginPath();
     ctx.moveTo(-2, 0);
     ctx.lineTo(11, 0);
     ctx.lineTo(7, -3);
     ctx.moveTo(11, 0);
     ctx.lineTo(7, 3);
-    ctx.lineWidth = 2;
+    ctx.lineWidth = focus === 'entrance' ? 3.4 : 2;
     ctx.stroke();
     ctx.restore();
   }
@@ -1212,7 +1341,11 @@ for (const group of $$('[data-compare-mode]')) {
       <button type="button" data-outline="both" aria-pressed="true">Ambas</button>
       <button type="button" data-outline="1103" aria-pressed="false">1103</button>
       <button type="button" data-outline="1108" aria-pressed="false">1108</button>
-    </div>`;
+    </div>
+    <div class="overlay-filters" hidden role="group" aria-label="Comparar ambientes">
+      ${Object.entries(comparisonFocus).map(([key, item]) => `<button type="button" data-compare-focus="${key}" aria-pressed="${key === 'outline'}">${item.label}</button>`).join('')}
+    </div>
+    <p class="overlay-note" aria-live="polite" hidden></p>`;
   const viewport = group.nextElementSibling;
   const side = viewport.firstElementChild;
   const overlay = document.createElement('figure');
@@ -1225,27 +1358,37 @@ for (const group of $$('[data-compare-mode]')) {
   const canvas = overlay.querySelector('canvas');
   const layouts = [...group.querySelectorAll('[data-layout]')];
   const outlines = [...group.querySelectorAll('[data-outline]')];
-  let mode = 'both';
-  for (const button of layouts) button.addEventListener('click', () => {
-    const show = button.dataset.layout === 'both';
+  const focuses = [...group.querySelectorAll('[data-compare-focus]')];
+  const note = group.querySelector('.overlay-note');
+  comparisonRenderers.push(() => {
+    const { layout, outline, focus } = comparisonView;
+    const show = layout === 'both';
     viewport.classList.toggle('overlay-open', show);
     side.hidden = show;
     overlay.hidden = !show;
-    group.querySelector('.overlay-filters').hidden = !show;
-    for (const option of layouts) option.setAttribute('aria-pressed', String(option === button));
+    for (const filter of group.querySelectorAll('.overlay-filters')) filter.hidden = !show;
+    for (const button of layouts) button.setAttribute('aria-pressed', String(button.dataset.layout === layout));
+    for (const button of outlines) button.setAttribute('aria-pressed', String(button.dataset.outline === outline));
+    for (const button of focuses) button.setAttribute('aria-pressed', String(button.dataset.compareFocus === focus));
+    note.hidden = !show || focus === 'outline';
+    note.textContent = comparisonFocus[focus].description;
     if (show) {
-      drawComparisonOverlay(canvas, mode);
-      group.scrollIntoView({ block: 'nearest' });
+      const selection = outline === 'both' ? '1103 e 1108' : outline;
+      canvas.setAttribute('aria-label', `${comparisonFocus[focus].label} · ${selection} · Orla para baixo`);
+      drawComparisonOverlay(canvas, outline, focus);
     }
-    viewport.scrollTo(0, 0);
   });
-  for (const button of outlines) button.addEventListener('click', () => {
-    mode = button.dataset.outline;
-    for (const option of outlines) option.setAttribute('aria-pressed', String(option === button));
-    canvas.setAttribute('aria-label', mode === 'both' ? 'Sobreposição das plantas 1103 e 1108, com a orla para baixo'
-      : 'Contorno e ambientes da unidade ' + mode + ', com a orla para baixo');
-    drawComparisonOverlay(canvas, mode);
-  });
+  for (const [buttons, field, dataKey] of [[layouts, 'layout', 'layout'], [outlines, 'outline', 'outline'], [focuses, 'focus', 'compareFocus']]) {
+    for (const button of buttons) button.addEventListener('click', () => {
+      comparisonView[field] = button.dataset[dataKey];
+      for (const render of comparisonRenderers) render();
+      syncUrl();
+      if (field === 'layout') {
+        group.scrollIntoView({ block: 'nearest' });
+        viewport.scrollTo(0, 0);
+      }
+    });
+  }
 }
 
 function updatePlanZoom(group) {
@@ -1321,14 +1464,37 @@ for (const button of $$('[data-show-building]')) {
 
 const comparisonIds = units.map(unit => unit.id).join(',');
 
-function stateLink({ unit, compare = false, plan = false } = {}) {
+function currentInterior() {
+  if (interiorView.hidden && !roomBeforeSimulation) return null;
+  if (roomBeforeSimulation) return balconyLinkState();
+  return { room: interiorRoom, walk: interiorWalk, furniture: interiorFurniture, route: interiorRoute };
+}
+
+function balconyLinkState() {
+  return { room: 'balcony', walk: Boolean(roomBeforeSimulation && interiorWalk), furniture: !roomBeforeSimulation || interiorFurniture,
+    route: Boolean(roomBeforeSimulation && interiorRoute), balcony: true, yaw: lastSimulationYaw, pitch: lastSimulationPitch };
+}
+
+function stateLink({ unit, compare = false, plan = false, interior: tour = null } = {}) {
   const url = new URL(location.href);
-  url.searchParams.delete('unidade');
-  url.searchParams.delete('comparar');
-  url.searchParams.delete('painel');
+  for (const key of ['unidade', 'comparar', 'painel', 'ambiente', 'visita', 'moveis', 'trajeto', 'sobrepor', 'foco', 'vista', 'camera']) url.searchParams.delete(key);
   if (unit) url.searchParams.set('unidade', unit);
   if (compare) url.searchParams.set('comparar', comparisonIds);
   if (unit && plan) url.searchParams.set('painel', 'planta');
+  if (compare && comparisonView.layout === 'both') {
+    url.searchParams.set('sobrepor', comparisonView.outline);
+    if (comparisonView.focus !== 'outline') url.searchParams.set('foco', comparisonView.focus);
+  }
+  if (tour) {
+    url.searchParams.set('ambiente', tour.room);
+    if (tour.walk) url.searchParams.set('visita', 'olhos');
+    if (tour.balcony) {
+      url.searchParams.set('vista', 'orla');
+      if (Number.isFinite(tour.yaw) && Number.isFinite(tour.pitch)) url.searchParams.set('camera', `${tour.yaw},${tour.pitch}`);
+    }
+    if (!tour.furniture) url.searchParams.set('moveis', '0');
+    if (tour.route) url.searchParams.set('trajeto', '1');
+  }
   return url;
 }
 
@@ -1345,10 +1511,12 @@ function comparisonLink() {
 }
 
 function syncUrl() {
+  const tour = currentInterior();
   const url = stateLink({
     unit: selectedUnit?.id,
-    compare: panelOpen && activePanel === 'compare',
-    plan: panelOpen && activePanel === 'plan'
+    compare: !tour && panelOpen && activePanel === 'compare',
+    plan: !tour && panelOpen && activePanel === 'plan',
+    interior: tour
   });
   if (url.search !== location.search) history.pushState(null, '', url);
 }
@@ -1363,13 +1531,35 @@ function restoreRoute(initial = false) {
   if (selectedUnit) revealUnits();
   renderUnit();
   const pair = params.get('comparar');
+  const outline = params.get('sobrepor');
+  comparisonView.layout = ['both', '1103', '1108'].includes(outline) ? 'both' : 'side';
+  comparisonView.outline = comparisonView.layout === 'both' ? outline : 'both';
+  const focus = params.get('foco');
+  comparisonView.focus = Object.hasOwn(comparisonFocus, focus) ? focus : 'outline';
+  for (const render of comparisonRenderers) render();
   if (pair?.split(',').sort().join(',') === comparisonIds) {
     if (selectedUnit) focusUnitInScene(selectedUnit, true);
     else model?.showUnit(null);
     openPanel('compare', { updateUrl: false });
+    if (comparisonView.layout === 'both') {
+      $('#compare-panel [data-compare-mode]').scrollIntoView({ block: 'nearest' });
+    }
   } else if (selectedUnit) {
     focusUnitInScene(selectedUnit, true);
     openPanel(params.get('painel') === 'planta' ? 'plan' : 'details', { updateUrl: false });
+    const room = params.get('ambiente');
+    if (selectedUnit.id === '1108' && Object.hasOwn(roomNames, room) && loadInterior()) {
+      interiorWalk = params.get('visita') === 'olhos' && room !== 'overview';
+      interiorFurniture = params.get('moveis') !== '0';
+      interiorRoute = params.get('trajeto') === '1';
+      showInterior(room);
+      if (room === 'balcony' && params.get('vista') === 'orla' && model) {
+        roomBeforeSimulation = 'balcony';
+        setSimulation(true);
+        const [yaw, pitch] = (params.get('camera') || '').split(',').map(Number);
+        if (Number.isFinite(yaw) && Number.isFinite(pitch)) model.setBalconyCamera(yaw, pitch);
+      }
+    }
   } else if (!initial) {
     panelOpen = false;
     renderPanel();

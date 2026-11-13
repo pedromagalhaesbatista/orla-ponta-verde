@@ -456,16 +456,26 @@ main { width: min(100% - clamp(16px, 2vw, 32px), 1760px); }
 .interior-view button:hover { background: #e1ebd5; }
 .interior-view #close-interior { white-space: nowrap; }
 #interior-canvas { display: block; width: 100%; height: 100%; }
+#interior-hotspots { position: absolute; inset: 0; pointer-events: none; }
+#interior-hotspots button { position: absolute; transform: translate(-50%, -50%); min-height: 29px; padding: 2px 7px; background: #174738f2; color: #f8f5e9; border-color: #c2cbb3; pointer-events: auto; font-size: .72rem; box-shadow: 0 2px 8px #17332642; }
+#interior-hotspots button:hover { background: #2d6953; }
 .interior-inset { position: absolute; right: clamp(9px, 2vw, 18px); bottom: 68px; width: clamp(70px, 12%, 110px); padding: 4px; border: 1px solid #9cac93; border-radius: 7px; background: #f6f4e9; box-shadow: 0 3px 13px #25352a22; }
 .interior-inset canvas { display: block; width: 100%; height: auto; }
 .interior-footer { position: absolute; inset: auto 0 0; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 5px 10px; padding: 10px clamp(8px, 2vw, 17px); background: #e9eee2f2; border-top: 1px solid #a8bba7; }
-.interior-rooms { display: flex; flex-wrap: wrap; gap: 4px; }
+.interior-rooms, .interior-modes, .interior-tools, .frontage-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.interior-footer .share-status { flex-basis: 100%; }
+.interior-footer .share-status:empty { display: none; }
+.overlay-note { flex-basis: 100%; color: var(--muted); font-size: .78rem; }
 .interior-view button[aria-pressed="true"], .interior-view #interior-balcony { background: #1e4b3c; color: #f1f4e6; border-color: #1e4b3c; }
 .interior-view #interior-balcony:disabled { visibility: hidden; }
 .interior-open .model-stage > :not(.interior-view), .interior-open #model-controls, .interior-open #scene-lighting { visibility: hidden; }
 .interior-open #model-controls, .interior-open .scene-credit { display: none; }
 .interior-open .viewer-footer { display: block; text-align: center; }
 .interior-open .residences { display: none; }
+.interior-open #panel-toggle { display: none; }
+.balcony-share { position: absolute; top: 45px; right: 0; display: grid; justify-items: end; gap: 3px; }
+.balcony-share .share-status { max-width: 170px; color: #edf4e5; background: #0b2421e8; border-radius: 5px; }
+@media (max-width: 800px) { .balcony-share { top: auto; bottom: 76px; } }
 .compare-mode { display: flex; flex-wrap: wrap; gap: 4px; margin: 7px 0; }
 .compare-mode button { min-height: 34px; padding: 2px 7px; border: 1px solid #8da08b; border-radius: 5px; background: #f5f4e8; font-size: .76rem; }
 .compare-mode button[aria-pressed="true"] { background: #24503d; color: #f4f6eb; }
@@ -687,8 +697,11 @@ main { width: min(100% - clamp(16px, 2vw, 32px), 1760px); }
 @media (max-width: 800px) {
   .workspace.interior-open .residences { display: none; }
   .workspace.interior-open .model-stage { height: clamp(340px, calc(100svh - 262px), 720px); }
-  .interior-inset { bottom: 100px; }
-  .interior-footer button { padding-inline: 7px; }
+  .interior-inset { bottom: 172px; }
+  .interior-footer { padding: 6px 8px; }
+  .interior-footer button { padding-inline: 6px; min-height: 31px; font-size: .73rem; }
+  .interior-rooms { flex-basis: 100%; }
+  .frontage-actions { justify-content: end; }
   .explore-units { left: 9px; bottom: 10px; }
 }
 @media (max-width: 340px) {

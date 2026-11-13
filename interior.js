@@ -1,16 +1,26 @@
 (() => {
   const views = {
     overview: { yaw: -.44, pitch: .80, x: 104, z: 132, zoom: 1 },
+    entrance: { yaw: -.49, pitch: .81, x: 88, z: 69, zoom: 1.2 },
     living: { yaw: -.64, pitch: .65, x: 65, z: 138, zoom: 1.33 },
     suite: { yaw: .50, pitch: .69, x: 151, z: 153, zoom: 1.32 },
     balcony: { yaw: -.20, pitch: .60, x: 66, z: 192, zoom: 1.32 }
   };
+  const eyeViews = {
+    entrance: { x: 81, z: 52, yaw: -.13 },
+    living: { x: 77, z: 124, yaw: -.13 },
+    suite: { x: 126, z: 119, yaw: .40 },
+    balcony: { x: 68, z: 190, yaw: 0 }
+  };
+  const circulation = [[83,40],[83,75],[82,116],[80,172],[68,188],[68,219]];
+  window.interiorStops = eyeViews;
 
-  window.createInterior = (canvas, plan) => {
+  window.createInterior = (canvas, plan, positionHotspots) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     const faces = [];
     const shadows = [];
+    let structure = true;
     const plaster = ['#f0e9d9', '#d4cbbb', '#fff8eb'];
     const oak = ['#8c6547', '#765338', '#bb936c'];
     const fabric = ['#bdad97', '#a6947d', '#dbcebb'];
@@ -19,19 +29,20 @@
     const stone = ['#c4b8a6', '#a89987', '#f0e6d4'];
     const glass = ['#85b6b67a', '#79a5a675', '#bad9d590'];
     const metal = ['#354746', '#253c39', '#68807a'];
-    const wall = (x1, z1, x2, z2, height = 19) => box(x1, z1, x2, z2, height, plaster);
+    const wall = (x1, z1, x2, z2, height = 19) => box(x1, z1, x2, z2, height, plaster, 0, 65 / height);
 
-    function box(x1, z1, x2, z2, h, colors, base = 0) {
+    function box(x1, z1, x2, z2, h, colors, base = 0, eyeScale = structure ? 2.9 : 1.65) {
       const a = [x1, base, z1], b = [x2, base, z1], c = [x2, base, z2], d = [x1, base, z2];
       const A = [x1, h, z1], B = [x2, h, z1], C = [x2, h, z2], D = [x1, h, z2];
-      faces.push(
+      const sides = [
         { points: [A, B, C, D], normal: [0, 1, 0], color: colors[2] },
         { points: [a, A, D, d], normal: [-1, 0, 0], color: colors[1] },
         { points: [b, c, C, B], normal: [1, 0, 0], color: colors[1] },
         { points: [a, b, B, A], normal: [0, 0, -1], color: colors[0] },
         { points: [d, D, C, c], normal: [0, 0, 1], color: colors[0] }
-      );
-      if (base === 0 && h > 3) shadows.push([[x1,z1],[x2+2,z1+2],[x2+2,z2+3],[x1,z2+3]]);
+      ];
+      for (const side of sides) faces.push({ ...side, structure, eyeScale });
+      if (base === 0 && h > 3) shadows.push({ structure, points: [[x1,z1],[x2+2,z1+2],[x2+2,z2+3],[x1,z2+3]] });
     }
 
     // Cut walls leave the documented door and window openings visible.
@@ -45,17 +56,27 @@
     wall(94, 36, 191, 39, 26);
     wall(113, 225, 127, 228, 9);
     wall(178, 225, 190, 228, 9);
-    box(29, 186, 91, 188, 14, glass);
-    box(127, 225, 178, 227, 12, glass);
+    box(29, 186, 91, 188, 14, glass, 0, 4.6);
+    box(127, 225, 178, 227, 12, glass, 0, 5.4);
     box(18, 225, 113, 228, 8, glass);
     for (const x of [19, 50, 81, 111]) box(x, 225, x + 1.5, 228, 9, metal);
     box(18, 225, 113, 228, 9, metal, 8);
+    box(59, 186, 60, 188, 14, metal, 0, 4.6);
+    box(152, 225, 153, 227, 12, metal, 0, 5.4);
 
-    // Kitchen, dining table and living room.
-    box(96, 42, 111, 109, 13, green);
-    box(95, 42, 111, 109, 14.5, stone, 13);
-    box(98, 62, 108, 76, 15, metal, 14.5);
-    box(99, 89, 108, 100, 15, metal, 14.5);
+    // Kitchen fixtures and plumbing stay visible in the unfurnished view.
+    box(96, 42, 111, 109, 13, green, 0, 1.65);
+    box(95, 42, 111, 109, 14.5, stone, 13, 1.65);
+    box(98, 62, 108, 76, 15, metal, 14.5, 1.65);
+    box(99, 89, 108, 100, 15, metal, 14.5, 1.65);
+    for (const [x, z] of [[23, 45], [119, 48]]) {
+      box(x, z, x + 12, z + 17, 4.5, linen, 0, 1.65);
+      box(x + 13, z + 2, x + 27, z + 12, 9, stone, 0, 1.65);
+      box(x + 15, z + 4, x + 25, z + 10, 9.5, linen, 9, 1.65);
+    }
+
+    // Dining and living room furniture.
+    structure = false;
     for (const [x, z] of [[43, 83], [74, 83], [43, 108], [74, 108]]) {
       box(x - 4, z - 4, x + 4, z + 4, 7, oak);
       box(x - 4, z + 3, x + 4, z + 5, 11, green, 7);
@@ -73,7 +94,7 @@
     box(103, 130, 111, 168, 8, oak);
     box(107, 134, 109, 163, 15, metal, 8);
 
-    // Suite, bathrooms and terrace furniture.
+    // Suite and terrace furniture.
     box(124, 122, 183, 192, .35, ['#b8ac95', '#b8ac95', '#c6bba6']);
     box(138, 134, 179, 176, 6, oak);
     box(138, 134, 179, 176, 9, linen, 6);
@@ -86,11 +107,6 @@
     box(172, 41, 188, 95, 24, oak);
     box(161, 196, 181, 213, 8, fabric);
     box(176, 195, 182, 215, 13, fabric, 8);
-    for (const [x, z] of [[23, 45], [119, 48]]) {
-      box(x, z, x + 12, z + 17, 4.5, linen);
-      box(x + 13, z + 2, x + 27, z + 12, 9, stone);
-      box(x + 15, z + 4, x + 25, z + 10, 9.5, linen, 9);
-    }
     box(24, 195, 43, 212, 7, fabric);
     box(24, 195, 28, 212, 12, fabric, 7);
     box(79, 198, 97, 215, 7, fabric);
@@ -104,6 +120,9 @@
     let camera = views.overview;
     let animation = 0;
     let visible = false;
+    let eye = null;
+    let furnished = true;
+    let route = false;
 
     function paint() {
       const { width, height } = canvas.getBoundingClientRect();
@@ -116,6 +135,11 @@
       }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       ctx.clearRect(0, 0, width, height);
+      if (eye) {
+        paintAtEyeLevel(width, height);
+        positionHotspots({});
+        return;
+      }
       const { yaw, pitch, x: centreX, z: centreZ, zoom } = camera;
       const sx = Math.sin(yaw), cx = Math.cos(yaw), sy = Math.sin(pitch), cy = Math.cos(pitch);
       const narrow = width < 560;
@@ -155,20 +179,105 @@
       const floorTones = ['#e4d6bc', '#c5ac8a', '#d6dfdb', '#d6dfdb', '#d2b595', '#d1c4ab'];
       for (const [i, room] of plan.rooms.entries()) floor(room.path, floorTones[i]);
       for (let z = 50; z < 225; z += 12) floor([[20,z],[188,z],[188,z+.30],[20,z+.30]], '#74634b30');
-      for (const outline of shadows) floor(outline, '#352e2623');
-      const ordered = faces.filter(({ normal: [a, b, c] }) => a * sx * cy + b * sy + c * cx * cy > 0)
+      if (route) {
+        ctx.beginPath();
+        circulation.map(([x, z]) => project([x, .4, z])).forEach(({ x, y }, index) => index ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+        ctx.strokeStyle = '#096653';
+        ctx.setLineDash([7, 4]);
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      for (const shadow of shadows) {
+        if (furnished || shadow.structure) floor(shadow.points, '#352e2623');
+      }
+      const ordered = faces.filter(({ normal: [a, b, c], structure }) => (furnished || structure) && a * sx * cy + b * sy + c * cx * cy > 0)
         .map(face => ({ ...face, depth: face.points.reduce((sum, point) => sum + project(point).depth, 0) / 4 }))
         .sort((a, b) => a.depth - b.depth);
       for (const { points, color } of ordered) polygon(points, color, '#574b3829');
+      positionHotspots(Object.fromEntries(Object.entries(eyeViews).map(([id, stop]) => [id, project([stop.x, 18, stop.z])])));
+    }
+
+    function paintAtEyeLevel(width, height) {
+      const focal = Math.min(width * .83, height * .84);
+      const sx = Math.sin(eye.yaw), cx = Math.cos(eye.yaw);
+      const cameraY = 40;
+      const horizon = height * (eye === eyeViews.balcony ? .32 : .42);
+      const sea = ctx.createLinearGradient(0, 0, 0, height);
+      sea.addColorStop(0, '#adc8cb');
+      sea.addColorStop(horizon / height, '#e4e8d7');
+      sea.addColorStop(horizon / height + .01, '#699a9d');
+      sea.addColorStop(1, '#2b7779');
+      ctx.fillStyle = sea;
+      ctx.fillRect(0, 0, width, height);
+
+      function cameraPoint([x, y, z]) {
+        const dx = x - eye.x, dz = z - eye.z;
+        return [dx * cx - dz * sx, y - cameraY, dx * sx + dz * cx];
+      }
+      function drawFace({ points, color, line }) {
+        const near = 3;
+        const input = points.map(cameraPoint);
+        const clipped = [];
+        for (const [i, current] of input.entries()) {
+          const previous = input[(i + input.length - 1) % input.length];
+          if ((previous[2] >= near) !== (current[2] >= near)) {
+            const t = (near - previous[2]) / (current[2] - previous[2]);
+            clipped.push(previous.map((v, axis) => v + (current[axis] - v) * t));
+          }
+          if (current[2] >= near) clipped.push(current);
+        }
+        if (clipped.length < 3) return;
+        ctx.beginPath();
+        for (const [i, [x, y, z]] of clipped.entries()) {
+          const px = width / 2 + x * focal / z, py = horizon - y * focal / z;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        if (line) {
+          ctx.strokeStyle = '#493d2a33';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+      const floorTones = ['#e4d6bc', '#cfba9b', '#d6dfdb', '#d6dfdb', '#d2b595', '#d1c4ab'];
+      for (const [i, room] of plan.rooms.entries()) drawFace({ points: room.path.map(([x, z]) => [x, 0, z]), color: floorTones[i] });
+      for (let z = 51; z < 224; z += 13) drawFace({ points: [[20,.1,z],[189,.1,z],[189,.1,z+.35],[20,.1,z+.35]], color: '#89765440' });
+      if (route) {
+        for (const [i, [x, z]] of circulation.slice(1).entries()) {
+          const [px, pz] = circulation[i];
+          drawFace({ points: [[px-1.8,.2,pz],[px+1.8,.2,pz],[x+1.8,.2,z],[x-1.8,.2,z]], color: '#147866' });
+        }
+      }
+      // Roof height and camera height are illustrative. Keep the balcony open.
+      drawFace({ points: [[18,65,38],[190,65,38],[190,65,226],[113,65,226],[113,65,187],[18,65,187]], color: '#efe9d9' });
+      const ordered = [];
+      for (const face of faces) {
+        if (!furnished && !face.structure) continue;
+        const points = face.points.map(([x, y, z]) => [x, y * face.eyeScale, z]);
+        const [x, y, z] = points[0];
+        const [nx, ny, nz] = face.normal;
+        if (nx * (eye.x - x) + ny * (cameraY - y) + nz * (eye.z - z) < 0) continue;
+        const depth = points.reduce((total, p) => total + cameraPoint(p)[2] / points.length, 0);
+        ordered.push({ points, color: face.color, depth, line: true });
+      }
+      ordered.sort((a, b) => b.depth - a.depth).forEach(drawFace);
     }
 
     new ResizeObserver(() => { if (visible) paint(); }).observe(canvas);
     return {
-      show(room) {
+      show(room, { walkthrough, furniture, showRoute }) {
         visible = true;
         cancelAnimationFrame(animation);
+        const wasEyeLevel = Boolean(eye);
+        eye = walkthrough ? eyeViews[room] : null;
+        furnished = furniture;
+        route = showRoute;
         const from = camera, to = views[room];
-        if (motion.matches || from === to || room === 'overview') {
+        if (eye || wasEyeLevel || motion.matches || from === to || room === 'overview') {
           camera = to;
           paint();
           return;
